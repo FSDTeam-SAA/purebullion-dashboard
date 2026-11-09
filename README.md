@@ -1,4 +1,4 @@
-# JSB Dashboard Starter
+# purebullion Dashboard Starter
 
 A clean, production-ready Next.js Dashboard Boilerplate configured with **Header**, **Sidebar**, **NextAuth**, and **Tailwind CSS**, designed following the layout and architecture of `product-supplier-dashboard`.
 
