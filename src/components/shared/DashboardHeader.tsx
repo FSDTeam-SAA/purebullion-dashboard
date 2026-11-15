@@ -30,6 +30,13 @@ export default function DashboardHeader() {
         isBreadcrumb: true,
       };
     }
+    if (pathname === "/market-data" || pathname.startsWith("/market-data")) {
+      return {
+        title: "Market & Data",
+        breadcrumbLabel: "Market & Data",
+        isBreadcrumb: true,
+      };
+    }
     if (pathname.startsWith("/settings") || pathname.startsWith("/account")) {
       return {
         title: "Account",

@@ -47,9 +47,9 @@ export const sidebarSections: SidebarSection[] = [
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutGrid },
       { name: "User Management", href: "/users", icon: Users },
-      { name: "Subscriptions", href: "#subscriptions", icon: Crown },
-      { name: "Data & Integrations", href: "#integrations", icon: Layers },
-      { name: "Signals", href: "#signals", icon: Activity },
+      { name: "Subscriptions", href: "/subscriptions", icon: Crown },
+      { name: "Market & Data", href: "/market-data", icon: Layers },
+      { name: "Signals", href: "/signals", icon: Activity },
       { name: "Community", href: "#community", icon: MessageCircle },
     ],
   },
@@ -57,13 +57,13 @@ export const sidebarSections: SidebarSection[] = [
     title: "PLATFORM",
     items: [
       { name: "News & Research", href: "#news-research", icon: FileText },
-      { name: "Help and Support", href: "#support", icon: HelpCircle },
+      { name: "Help and Support", href: "/support", icon: HelpCircle },
     ],
   },
   {
     title: "ACTIVITY",
     items: [
-      { name: "Alerts", href: "#alerts", icon: Bell, badge: "01" },
+      { name: "Alerts", href: "/alerts", icon: Bell, badge: "01" },
     ],
   },
   {
