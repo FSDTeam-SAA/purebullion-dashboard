@@ -50,13 +50,13 @@ export const sidebarSections: SidebarSection[] = [
       { name: "Subscriptions", href: "/subscriptions", icon: Crown },
       { name: "Market & Data", href: "/market-data", icon: Layers },
       { name: "Signals", href: "/signals", icon: Activity },
-      { name: "Community", href: "#community", icon: MessageCircle },
+      { name: "Community", href: "/community", icon: MessageCircle },
     ],
   },
   {
     title: "PLATFORM",
     items: [
-      { name: "News & Research", href: "#news-research", icon: FileText },
+      { name: "News & Research", href: "/ai-intelligence", icon: FileText },
       { name: "Help and Support", href: "/support", icon: HelpCircle },
     ],
   },
