@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { CreditCard } from "lucide-react";
+import { usePaidPlanPerformance } from "./hooks/useDashboard";
 
 interface PlanItem {
   name: string;
@@ -11,7 +12,7 @@ interface PlanItem {
   revenue: string;
 }
 
-const plans: PlanItem[] = [
+const defaultPlans: PlanItem[] = [
   {
     name: "Plan A",
     percentage: 44,
@@ -33,6 +34,16 @@ const plans: PlanItem[] = [
 ];
 
 export default function PaidPlanPerformance() {
+  const { data: perfResult } = usePaidPlanPerformance();
+
+  const plans = (perfResult as any)?.plans?.length
+    ? (perfResult as any).plans.map((p: any) => ({
+        name: p.name,
+        percentage: p.percentage,
+        subscribers: p.subscribers?.toLocaleString() || "0",
+        revenue: typeof p.revenue === 'number' ? `$${p.revenue.toLocaleString()}` : String(p.revenue),
+      }))
+    : defaultPlans;
   return (
     <div className="p-5 sm:p-6 rounded-xl bg-[#0C0F10] border border-[#1B2227] font-raleway shadow-xs">
       {/* Header */}
@@ -54,7 +65,7 @@ export default function PaidPlanPerformance() {
 
       {/* 3 Columns */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-        {plans.map((plan) => (
+        {plans.map((plan: PlanItem) => (
           <div
             key={plan.name}
             className="p-4 sm:p-5 rounded-lg bg-[#121719]/60 border border-[#1B2227] flex flex-col justify-between gap-4 hover:border-[#2B353E] transition-all"

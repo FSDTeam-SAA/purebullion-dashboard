@@ -1,33 +1,60 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useNotificationPreferences,
+  useUpdateNotificationPreferences,
+} from "./hooks/useAccount";
 
 interface ToggleItem {
   id: string;
+  key: string;
   label: string;
   enabled: boolean;
 }
 
 const initialToggles: ToggleItem[] = [
-  { id: "new-signals", label: "New signals", enabled: true },
-  { id: "signal-closed-1", label: "Signal closed", enabled: true },
-  { id: "signal-closed-2", label: "Signal closed", enabled: true },
-  { id: "market-condition", label: "Market condition change", enabled: true },
-  { id: "watchlist-movers", label: "Watchlist movers", enabled: false },
-  { id: "community-replies", label: "Community replies", enabled: true },
-  { id: "daily-briefing", label: "Daily briefing email", enabled: true },
-  { id: "weekly-wrap", label: "Weekly wrap email", enabled: false },
+  { id: "new-signals", key: "newSignals", label: "New signals", enabled: true },
+  { id: "signal-closed-1", key: "signalProximity", label: "Signal proximity", enabled: true },
+  { id: "signal-closed-2", key: "signalClosed", label: "Signal closed", enabled: true },
+  { id: "market-condition", key: "marketConditionChange", label: "Market condition change", enabled: true },
+  { id: "watchlist-movers", key: "watchlistMovers", label: "Watchlist movers", enabled: false },
+  { id: "community-replies", key: "communityReplies", label: "Community replies", enabled: true },
+  { id: "daily-briefing", key: "dailyBriefingEmail", label: "Daily briefing email", enabled: true },
+  { id: "weekly-wrap", key: "weeklyWrapEmail", label: "Weekly wrap email", enabled: false },
 ];
 
 export default function NotificationPreferencesCard() {
+  const { data: prefData } = useNotificationPreferences();
+  const updatePrefMutation = useUpdateNotificationPreferences();
+
   const [toggles, setToggles] = useState<ToggleItem[]>(initialToggles);
 
+  useEffect(() => {
+    if (prefData?.toggles) {
+      setToggles((prev) =>
+        prev.map((t) => ({
+          ...t,
+          enabled: prefData.toggles[t.key as keyof typeof prefData.toggles] ?? t.enabled,
+        }))
+      );
+    }
+  }, [prefData]);
+
   const handleToggle = (id: string) => {
-    setToggles((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t))
-    );
+    const next = toggles.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t));
+    setToggles(next);
+
+    const togglesPayload: Record<string, boolean> = {};
+    next.forEach((item) => {
+      togglesPayload[item.key] = item.enabled;
+    });
+
+    updatePrefMutation.mutate({
+      toggles: togglesPayload as any,
+    });
   };
 
   return (

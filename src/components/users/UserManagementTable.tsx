@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUsers, useDeleteUser, useUpdateUser } from "./hooks/useUsers";
 
 export interface UserItem {
   id: string;
@@ -111,6 +112,10 @@ const tabs = ["All", "Active", "Suspended", "Inactive"] as const;
 type TabType = (typeof tabs)[number];
 
 export default function UserManagementTable() {
+  const { data: usersData } = useUsers();
+  const deleteMutation = useDeleteUser();
+  const updateMutation = useUpdateUser();
+
   const [users, setUsers] = useState<UserItem[]>(initialUsers);
   const [activeTab, setActiveTab] = useState<TabType>("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -124,9 +129,26 @@ export default function UserManagementTable() {
   const [newUserSub, setNewUserSub] = useState<"Essential" | "Professional" | "Elite">("Essential");
   const [newUserStatus, setNewUserStatus] = useState<"Active" | "Suspended" | "In Active">("Active");
 
+  // Effective users list (API data if loaded, else state)
+  const currentUsers = useMemo(() => {
+    const rawUsers: any[] = (usersData as any)?.data?.users || (usersData as any)?.users;
+    if (rawUsers && rawUsers.length > 0) {
+      return rawUsers.map((u: any) => ({
+        id: u._id || u.id || "",
+        name: u.user?.name || u.name || u.email,
+        email: u.user?.email || u.email,
+        subscription: (u.subscriptions || (u as any).subscriptionPlan?.name || (u as any).currentPlan?.name || "Essential") as UserItem["subscription"],
+        status: (u.status === "Suspended" ? "Suspended" : u.status === "In Active" ? "In Active" : "Active") as UserItem["status"],
+        joined: u.joined || (u.createdAt ? new Date(u.createdAt).toISOString().split("T")[0] : "2024-01-15"),
+        lastActive: u.lastActive || "Recently",
+      }));
+    }
+    return users;
+  }, [usersData, users]);
+
   // Filtering
   const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
+    return currentUsers.filter((u: UserItem) => {
       // Tab filter
       if (activeTab === "Active" && u.status !== "Active") return false;
       if (activeTab === "Suspended" && u.status !== "Suspended") return false;
@@ -142,7 +164,7 @@ export default function UserManagementTable() {
       }
       return true;
     });
-  }, [users, activeTab, searchQuery]);
+  }, [currentUsers, activeTab, searchQuery]);
 
   // Handle Add User
   const handleAddUser = (e: React.FormEvent) => {
@@ -168,7 +190,8 @@ export default function UserManagementTable() {
   // Handle Delete
   const confirmDelete = () => {
     if (!deleteUserId) return;
-    setUsers(users.filter((u) => u.id !== deleteUserId));
+    deleteMutation.mutate(deleteUserId);
+    setUsers((prev) => prev.filter((u) => u.id !== deleteUserId));
     setDeleteUserId(null);
   };
 
@@ -253,7 +276,7 @@ export default function UserManagementTable() {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                filteredUsers.map((user: UserItem) => (
                   <tr
                     key={user.id}
                     className="hover:bg-[#121719]/60 transition-colors group"

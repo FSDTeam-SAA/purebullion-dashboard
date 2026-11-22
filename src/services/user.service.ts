@@ -32,7 +32,7 @@ export const userService = {
    * Fetch current user profile
    */
   async getProfile(): Promise<ApiResponse<UserProfile>> {
-    const response = await apiClient.get<ApiResponse<UserProfile>>('/user/profile');
+    const response = await apiClient.get<ApiResponse<UserProfile>>('/user/me');
     return response.data;
   },
 
@@ -45,22 +45,24 @@ export const userService = {
   ): Promise<ApiResponse<UserProfile>> {
     if (photoFile) {
       const formData = new FormData();
-      formData.append('photo', photoFile);
-      if (payload.firstName !== undefined) formData.append('firstName', payload.firstName.trim());
-      if (payload.lastName !== undefined) formData.append('lastName', payload.lastName.trim());
-      if (payload.email !== undefined) formData.append('email', payload.email.trim());
-      if (payload.phoneNumber !== undefined) formData.append('phoneNumber', payload.phoneNumber.trim());
+      formData.append('profileImage', photoFile);
+      if (payload.firstName || payload.lastName) {
+        formData.append('name', `${payload.firstName || ''} ${payload.lastName || ''}`.trim());
+      }
+      if (payload.phoneNumber) formData.append('phone', payload.phoneNumber.trim());
 
-      const response = await apiClient.patch<ApiResponse<UserProfile>>(
-        '/user/profile',
-        formData
-      );
-      return response.data;
+      await apiClient.post('/user/upload-avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
     }
 
-    const response = await apiClient.patch<ApiResponse<UserProfile>>(
-      '/user/profile',
-      payload
+    const name = `${payload.firstName || ''} ${payload.lastName || ''}`.trim();
+    const response = await apiClient.put<ApiResponse<UserProfile>>(
+      '/user/me',
+      {
+        name: name || undefined,
+        phone: payload.phoneNumber || undefined,
+      }
     );
     return response.data;
   },

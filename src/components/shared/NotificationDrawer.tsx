@@ -9,6 +9,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/ui.store";
+import {
+  useUserNotifications,
+  useMarkAllNotificationsRead,
+} from "@/components/alerts/hooks/useAlerts";
 
 export interface NotificationItem {
   id: string;
@@ -30,10 +34,33 @@ export default function NotificationDrawer() {
     setUnreadNotificationsCount,
   } = useUIStore();
 
+  const { data: userNotifs } = useUserNotifications();
+  const markAllMutation = useMarkAllNotificationsRead();
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activeTab, setActiveTab] = useState<FilterTab>("All");
 
+  useEffect(() => {
+    if (userNotifs && userNotifs.length > 0) {
+      setNotifications(
+        (userNotifs as any[]).map((n: any, idx: number) => ({
+          id: n._id || n.id || String(idx),
+          title: n.title || "Notification",
+          description: n.message,
+          time: n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now",
+          group: "Today" as const,
+          isRead: Boolean(n.isRead),
+          link: n.link || null,
+        }))
+      );
+    }
+  }, [userNotifs]);
+
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  useEffect(() => {
+    setUnreadNotificationsCount(unreadCount);
+  }, [unreadCount, setUnreadNotificationsCount]);
 
   // Handle escape key to close drawer
   useEffect(() => {
@@ -61,6 +88,7 @@ export default function NotificationDrawer() {
   };
 
   const handleMarkAllAsRead = () => {
+    markAllMutation.mutate();
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setUnreadNotificationsCount(0);
   };

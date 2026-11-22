@@ -3,6 +3,7 @@
 import React from "react";
 import { DollarSign } from "lucide-react";
 import { useIsClient } from "@/hooks/useIsClient";
+import { useRevenueOverview } from "./hooks/useDashboard";
 import {
   ResponsiveContainer,
   BarChart,
@@ -10,7 +11,7 @@ import {
   Tooltip,
 } from "recharts";
 
-const data = [
+const fallbackData = [
   { period: "P1", value: 72 },
   { period: "P2", value: 99 },
   { period: "P3", value: 82 },
@@ -27,6 +28,18 @@ const data = [
 
 export default function RevenueOverviewChart() {
   const isMounted = useIsClient();
+  const { data: revenueData } = useRevenueOverview();
+  const rev = revenueData as any;
+
+  const chartData = rev?.chartData?.length
+    ? rev.chartData
+    : rev?.monthlyBreakdown?.length
+    ? rev.monthlyBreakdown.map((item: any, idx: number) => ({ period: `P${idx + 1}`, value: item.revenue || item.value }))
+    : fallbackData;
+  const totalRev = rev?.totalRevenue
+    ? String(rev.totalRevenue)
+    : "$184,620";
+  const changeBadge = rev?.change || "↑ 9.8%";
 
   return (
     <div className="p-5 sm:p-6 rounded-xl bg-[#0C0F10] border border-[#1B2227] flex flex-col justify-between font-raleway h-full shadow-xs">
@@ -46,11 +59,11 @@ export default function RevenueOverviewChart() {
               Total revenue
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              $184,620
+              {totalRev}
             </div>
           </div>
           <span className="px-2.5 py-1 rounded-md bg-[#0E2922] border border-[#10B981]/30 text-xs font-bold text-[#10B981] flex items-center gap-1">
-            ↑ 9.8%
+            {changeBadge}
           </span>
         </div>
       </div>
@@ -59,7 +72,7 @@ export default function RevenueOverviewChart() {
       <div className="w-full min-w-0 h-[180px] sm:h-[190px]">
         {isMounted ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <BarChart data={data} margin={{ top: 10, right: 4, left: 4, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 4, left: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#E7C042" stopOpacity={1} />

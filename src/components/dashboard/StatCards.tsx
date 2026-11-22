@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Users, Crown, Activity, Bell } from "lucide-react";
+import { useDashboardKpis } from "./hooks/useDashboard";
 
 interface StatItem {
   id: string;
@@ -13,20 +14,19 @@ interface StatItem {
   sparklinePath: string;
 }
 
-const stats: StatItem[] = [
+const defaultStats: StatItem[] = [
   {
     id: "total-users",
     title: "Total Users",
     value: "12,482",
     changeBadge: "+ 8.4% this month",
     icon: Users,
-    // Teal/green upward wave path
     sparklinePath: "M0,28 Q20,25 35,28 T70,20 T105,22 T140,10 T175,12 T200,2",
   },
   {
     id: "subscription-revenue",
     title: "Subscription Revenue",
-    value: "24",
+    value: "$102,400",
     changeBadge: "+ 8.4% this month",
     icon: Crown,
     sparklinePath: "M0,26 Q25,28 45,22 T90,24 T135,16 T170,18 T200,4",
@@ -50,6 +50,41 @@ const stats: StatItem[] = [
 ];
 
 export default function StatCards() {
+  const { data: kpis } = useDashboardKpis();
+
+  const stats = defaultStats.map((stat) => {
+    if (!kpis) return stat;
+    const kpiData = kpis as any;
+    if (stat.id === "total-users" && kpiData.totalUsers) {
+      return {
+        ...stat,
+        value: String(kpiData.totalUsers.value ?? stat.value),
+        changeBadge: kpiData.totalUsers.growth || kpiData.totalUsers.change || stat.changeBadge,
+      };
+    }
+    if (stat.id === "subscription-revenue" && kpiData.subscriptionRevenue) {
+      return {
+        ...stat,
+        value: String(kpiData.subscriptionRevenue.value ?? stat.value),
+        changeBadge: kpiData.subscriptionRevenue.growth || kpiData.subscriptionRevenue.change || stat.changeBadge,
+      };
+    }
+    if (stat.id === "active-signals" && kpiData.activeSignals) {
+      return {
+        ...stat,
+        value: String(kpiData.activeSignals.value ?? stat.value),
+        subtitle: kpiData.activeSignals.subtitle || stat.subtitle,
+      };
+    }
+    if (stat.id === "open-alerts" && kpiData.openAlerts) {
+      return {
+        ...stat,
+        value: String(kpiData.openAlerts.value ?? stat.value),
+        subtitle: kpiData.openAlerts.subtitle || stat.subtitle,
+      };
+    }
+    return stat;
+  });
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 font-raleway select-none">
       {stats.map((stat) => {

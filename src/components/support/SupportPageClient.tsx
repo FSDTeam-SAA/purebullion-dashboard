@@ -3,11 +3,16 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Eye, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useSupportMessages,
+  useResolveTicket,
+  useDeleteTicket,
+} from "./hooks/useSupport";
 
 const filters = ["All", "Pending", "Resolved"] as const;
 type Filter = (typeof filters)[number];
-type Ticket = { id: number; date: string; name: string; email: string; status: "Pending" | "Resolved" };
-const tickets: Ticket[] = [
+type Ticket = { id: string | number; date: string; name: string; email: string; message?: string; status: "Pending" | "Resolved" };
+const defaultTickets: Ticket[] = [
   { id: 1, date: "2024-01-15", name: "Ralph Edwards", email: "ralphedwards@gmail.com", status: "Resolved" },
   { id: 2, date: "2024-01-16", name: "Apple Inc.", email: "ralphedwards@gmail.com", status: "Pending" },
   { id: 3, date: "2024-01-17", name: "James Wilson", email: "james.wilson@gmail.com", status: "Resolved" },
@@ -20,11 +25,206 @@ const tickets: Ticket[] = [
 ];
 
 export default function SupportPageClient() {
-  const [filter, setFilter] = useState<Filter>("All"); const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("All");
+  const [query, setQuery] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const visible = useMemo(() => tickets.filter((ticket) => (filter === "All" || ticket.status === filter) && `${ticket.name} ${ticket.email}`.toLowerCase().includes(query.toLowerCase())), [filter, query]);
-  return <div className="pb-8 font-raleway"><section className="overflow-hidden rounded-xl border border-[#1B2227] bg-[#0C0F10] shadow-sm"><div className="flex flex-col gap-4 border-b border-[#1B2227] p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between"><div className="inline-flex flex-wrap items-center gap-1 rounded-lg bg-[#101619] p-1">{filters.map((item) => <button key={item} onClick={() => setFilter(item)} className={cn("rounded-md px-3 py-1.5 text-xs font-semibold transition-all", filter === item ? "tab-gold-active text-white shadow-xs" : "text-[#8E9CA8] hover:bg-white/5 hover:text-white")}>{item}</button>)}</div><label className="flex w-full items-center gap-2 rounded-lg border border-[#1B2227] bg-[#0C0F10] px-3 py-2 text-xs transition-all focus-within:border-[#E7C042]/70 lg:w-64"><Search className="h-4 w-4 text-[#5B6675]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search..." className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[#5B6675]" /><kbd className="rounded border border-[#2B353E] bg-[#182026] px-1.5 py-0.5 text-[10px] text-[#8E9CA8]">⌘K</kbd></label></div><div className="overflow-x-auto"><table className="w-full min-w-[800px] border-collapse text-left"><thead><tr className="border-b border-[#1B2227] bg-[#171D1F] text-[11px] font-bold uppercase tracking-wider text-[#8E9CA8]">{["Date", "User Name", "Email", "Status", "Action"].map((head) => <th key={head} className="px-4 py-3.5 sm:px-6">{head}</th>)}</tr></thead><tbody className="divide-y divide-[#1B2227] text-xs sm:text-sm">{visible.length ? visible.map((ticket) => <tr key={ticket.id} className="transition-colors hover:bg-[#121719]/60"><td className="whitespace-nowrap px-4 py-4 font-nunito text-[#8E9CA8] sm:px-6">{ticket.date}</td><td className="whitespace-nowrap px-4 py-4 font-bold text-white sm:px-6">{ticket.name}</td><td className="whitespace-nowrap px-4 py-4 font-nunito text-[#8E9CA8] sm:px-6">{ticket.email}</td><td className="whitespace-nowrap px-4 py-4 sm:px-6"><Status status={ticket.status} /></td><td className="px-4 py-4 sm:px-6"><button onClick={() => setSelectedTicket(ticket)} aria-label={`View ${ticket.name}'s ticket`} className="rounded-md p-1.5 text-[#8E9CA8] transition-colors hover:bg-[#182026] hover:text-[#E7C042]"><Eye className="h-4 w-4" /></button></td></tr>) : <tr><td colSpan={5} className="py-12 text-center text-sm text-[#718090]">No support requests found matching your search.</td></tr>}</tbody></table></div><footer className="flex flex-col items-center justify-between gap-4 border-t border-[#1B2227] p-4 text-xs sm:flex-row sm:px-6"><span className="text-[#8E9CA8]">Showing <b className="text-white">1</b> to <b className="text-white">{visible.length}</b> of <b className="text-white">120</b> results</span><div className="flex items-center gap-1.5"><button className="rounded-md p-1.5 text-[#5B6675]"><ChevronLeft className="h-4 w-4" /></button><button className="tab-gold-active flex h-7 w-7 items-center justify-center rounded-md font-bold text-white">1</button>{[2, 3].map((page) => <button key={page} className="flex h-7 w-7 items-center justify-center rounded-md font-medium text-[#8E9CA8] hover:bg-[#182026] hover:text-white">{page}</button>)}<span className="px-1 text-[#5B6675]">…</span><button className="flex h-7 w-7 items-center justify-center rounded-md font-medium text-[#8E9CA8] hover:bg-[#182026] hover:text-white">17</button><button className="rounded-md p-1.5 text-[#8E9CA8] hover:bg-[#182026] hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></footer></section>{selectedTicket && <SupportModal ticket={selectedTicket} close={() => setSelectedTicket(null)} />}</div>;
+
+  const { data: supportData } = useSupportMessages({
+    status: filter === "All" ? undefined : filter.toLowerCase(),
+  });
+  const resolveMutation = useResolveTicket();
+
+  const ticketList: Ticket[] = useMemo(() => {
+    if (supportData?.tickets && supportData.tickets.length > 0) {
+      return supportData.tickets.map((t: any, idx: number) => ({
+        id: t._id || t.id || idx + 1,
+        date: t.createdAt ? new Date(t.createdAt).toISOString().split("T")[0] : "2024-01-15",
+        name: t.name,
+        email: t.email,
+        message: t.message,
+        status: (t.status === "resolved" ? "Resolved" : "Pending") as Ticket["status"],
+      }));
+    }
+    return defaultTickets;
+  }, [supportData]);
+
+  const visible = useMemo(
+    () =>
+      ticketList.filter(
+        (ticket: Ticket) =>
+          (filter === "All" || ticket.status === filter) &&
+          `${ticket.name} ${ticket.email}`.toLowerCase().includes(query.toLowerCase())
+      ),
+    [ticketList, filter, query]
+  );
+
+  return (
+    <div className="pb-8 font-raleway">
+      <section className="overflow-hidden rounded-xl border border-[#1B2227] bg-[#0C0F10] shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-[#1B2227] p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="inline-flex flex-wrap items-center gap-1 rounded-lg bg-[#101619] p-1">
+            {filters.map((item) => (
+              <button
+                key={item}
+                onClick={() => setFilter(item)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                  filter === item ? "tab-gold-active text-white shadow-xs" : "text-[#8E9CA8] hover:bg-white/5 hover:text-white"
+                )}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <label className="flex w-full items-center gap-2 rounded-lg border border-[#1B2227] bg-[#0C0F10] px-3 py-2 text-xs transition-all focus-within:border-[#E7C042]/70 lg:w-64">
+            <Search className="h-4 w-4 text-[#5B6675]" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search..."
+              className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[#5B6675]"
+            />
+            <kbd className="rounded border border-[#2B353E] bg-[#182026] px-1.5 py-0.5 text-[10px] text-[#8E9CA8]">⌘K</kbd>
+          </label>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px] border-collapse text-left">
+            <thead>
+              <tr className="border-b border-[#1B2227] bg-[#171D1F] text-[11px] font-bold uppercase tracking-wider text-[#8E9CA8]">
+                {["Date", "User Name", "Email", "Status", "Action"].map((head) => (
+                  <th key={head} className="px-4 py-3.5 sm:px-6">
+                    {head}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1B2227] text-xs sm:text-sm">
+              {visible.length ? (
+                visible.map((ticket: Ticket) => (
+                  <tr key={ticket.id} className="transition-colors hover:bg-[#121719]/60">
+                    <td className="whitespace-nowrap px-4 py-4 font-nunito text-[#8E9CA8] sm:px-6">{ticket.date}</td>
+                    <td className="whitespace-nowrap px-4 py-4 font-bold text-white sm:px-6">{ticket.name}</td>
+                    <td className="whitespace-nowrap px-4 py-4 font-nunito text-[#8E9CA8] sm:px-6">{ticket.email}</td>
+                    <td className="whitespace-nowrap px-4 py-4 sm:px-6">
+                      <Status status={ticket.status} />
+                    </td>
+                    <td className="px-4 py-4 sm:px-6">
+                      <button
+                        onClick={() => setSelectedTicket(ticket)}
+                        aria-label={`View ${ticket.name}'s ticket`}
+                        className="rounded-md p-1.5 text-[#8E9CA8] transition-colors hover:bg-[#182026] hover:text-[#E7C042]"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-sm text-[#718090]">
+                    No support requests found matching your search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <footer className="flex flex-col items-center justify-between gap-4 border-t border-[#1B2227] p-4 text-xs sm:flex-row sm:px-6">
+          <span className="text-[#8E9CA8]">
+            Showing <b className="text-white">1</b> to <b className="text-white">{visible.length}</b> of{" "}
+            <b className="text-white">120</b> results
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button className="rounded-md p-1.5 text-[#5B6675]">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button className="tab-gold-active flex h-7 w-7 items-center justify-center rounded-md font-bold text-white">1</button>
+            {[2, 3].map((page) => (
+              <button
+                key={page}
+                className="flex h-7 w-7 items-center justify-center rounded-md font-medium text-[#8E9CA8] hover:bg-[#182026] hover:text-white"
+              >
+                {page}
+              </button>
+            ))}
+            <span className="px-1 text-[#5B6675]">…</span>
+            <button className="flex h-7 w-7 items-center justify-center rounded-md font-medium text-[#8E9CA8] hover:bg-[#182026] hover:text-white">
+              17
+            </button>
+            <button className="rounded-md p-1.5 text-[#8E9CA8] hover:bg-[#182026] hover:text-white">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </footer>
+      </section>
+      {selectedTicket && (
+        <SupportModal
+          ticket={selectedTicket}
+          close={() => setSelectedTicket(null)}
+          onResolve={() => {
+            resolveMutation.mutate({ id: String(selectedTicket.id), status: "resolved" });
+            setSelectedTicket(null);
+          }}
+        />
+      )}
+    </div>
+  );
 }
-function Status({ status }: { status: Ticket["status"] }) { const resolved = status === "Resolved"; return <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-semibold", resolved ? "border-[#10B981]/30 bg-[#0E2922] text-[#10B981]" : "border-[#F59E0B]/30 bg-[#3B2910] text-[#FBBF24]")}><span className="h-1.5 w-1.5 rounded-full bg-current" />{status}</span>; }
-function SupportModal({ ticket, close }: { ticket: Ticket; close: () => void }) { return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"><div className="w-full max-w-[520px] rounded-2xl bg-[#252D2F] p-4 shadow-2xl sm:p-6"><div className="flex items-center justify-between border-b border-[#B69942]/20 pb-3"><h2 className="text-lg font-bold text-white">Support</h2><button onClick={close} className="text-[#A9A39A] hover:text-white" aria-label="Close"><X className="h-5 w-5" /></button></div><div className="mt-3 space-y-3"><ModalField label="Full name" value={ticket.name} /><ModalField label="Email" value={ticket.email} /><label className="block text-xs text-white">Message<textarea readOnly value={`Hello, I need support with my account. This request was submitted by ${ticket.name} on ${ticket.date}. Please review the details and contact me at ${ticket.email}.`} className="mt-1.5 h-24 w-full resize-none rounded-lg border border-transparent bg-[#596165] p-3 text-xs text-white outline-none" /></label></div><button onClick={close} className="gold-gradient-btn mt-3 w-full rounded-lg px-4 py-3 text-xs font-medium">Mark as resolved</button></div></div>; }
-function ModalField({ label, value }: { label: string; value: string }) { return <label className="block text-xs text-white">{label}<input readOnly value={value} className="mt-1.5 w-full rounded-lg border border-transparent bg-[#596165] px-3 py-2.5 text-sm font-semibold text-white outline-none" /></label>; }
+
+function Status({ status }: { status: Ticket["status"] }) {
+  const resolved = status === "Resolved";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-semibold",
+        resolved ? "border-[#10B981]/30 bg-[#0E2922] text-[#10B981]" : "border-[#F59E0B]/30 bg-[#3B2910] text-[#FBBF24]"
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {status}
+    </span>
+  );
+}
+
+function SupportModal({ ticket, close, onResolve }: { ticket: Ticket; close: () => void; onResolve: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-[520px] rounded-2xl bg-[#252D2F] p-4 shadow-2xl sm:p-6">
+        <div className="flex items-center justify-between border-b border-[#B69942]/20 pb-3">
+          <h2 className="text-lg font-bold text-white">Support</h2>
+          <button onClick={close} className="text-[#A9A39A] hover:text-white" aria-label="Close">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mt-3 space-y-3">
+          <ModalField label="Full name" value={ticket.name} />
+          <ModalField label="Email" value={ticket.email} />
+          <label className="block text-xs text-white">
+            Message
+            <textarea
+              readOnly
+              value={ticket.message || `Hello, I need support with my account. This request was submitted by ${ticket.name} on ${ticket.date}. Please review the details and contact me at ${ticket.email}.`}
+              className="mt-1.5 h-24 w-full resize-none rounded-lg border border-transparent bg-[#596165] p-3 text-xs text-white outline-none"
+            />
+          </label>
+        </div>
+        <button onClick={onResolve} className="gold-gradient-btn mt-3 w-full rounded-lg px-4 py-3 text-xs font-medium">
+          Mark as resolved
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ModalField({ label, value }: { label: string; value: string }) {
+  return (
+    <label className="block text-xs text-white">
+      {label}
+      <input
+        readOnly
+        value={value}
+        className="mt-1.5 w-full rounded-lg border border-transparent bg-[#596165] px-3 py-2.5 text-sm font-semibold text-white outline-none"
+      />
+    </label>
+  );
+}

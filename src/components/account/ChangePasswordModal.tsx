@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Lock, Eye, EyeOff, X } from "lucide-react";
+import { useChangeAccountPassword } from "./hooks/useAccount";
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ export default function ChangePasswordModal({
   isOpen,
   onClose,
 }: ChangePasswordModalProps) {
+  const changePasswordMutation = useChangeAccountPassword();
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,8 +32,8 @@ export default function ChangePasswordModal({
     e.preventDefault();
     setError(null);
 
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters long.");
+    if (newPassword.length < 6) {
+      setError("New password must be at least 6 characters long.");
       return;
     }
 
@@ -39,14 +42,27 @@ export default function ChangePasswordModal({
       return;
     }
 
-    setSuccess(true);
-    setTimeout(() => {
-      setSuccess(false);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      onClose();
-    }, 1500);
+    changePasswordMutation.mutate(
+      {
+        oldPassword: currentPassword,
+        newPassword,
+      },
+      {
+        onSuccess: () => {
+          setSuccess(true);
+          setTimeout(() => {
+            setSuccess(false);
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+            onClose();
+          }, 1500);
+        },
+        onError: (err: any) => {
+          setError(err?.response?.data?.message || "Failed to change password. Please verify current password.");
+        },
+      }
+    );
   };
 
   return (

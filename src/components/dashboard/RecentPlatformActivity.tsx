@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Activity, ChevronRight } from "lucide-react";
+import { useRecentPlatformActivity } from "./hooks/useDashboard";
 
 interface ActivityItem {
   id: string;
@@ -11,7 +12,7 @@ interface ActivityItem {
   time: string;
 }
 
-const activities: ActivityItem[] = [
+const defaultActivities: ActivityItem[] = [
   {
     id: "1",
     name: "Liam Morgan",
@@ -45,6 +46,16 @@ const activities: ActivityItem[] = [
 ];
 
 export default function RecentPlatformActivity() {
+  const { data: activityResult } = useRecentPlatformActivity();
+
+  const activities: ActivityItem[] = (activityResult as any)?.activities?.length
+    ? (activityResult as any).activities.map((a: any, idx: number) => ({
+        id: a._id || a.id || String(idx),
+        name: a.user?.name || a.name || "User",
+        action: a.action || a.description || "Activity logged",
+        time: a.timestamp || a.time || "Recently",
+      }))
+    : defaultActivities;
   return (
     <div className="p-5 sm:p-6 rounded-xl bg-[#0C0F10] border border-[#1B2227] font-raleway h-full flex flex-col justify-between shadow-xs">
       {/* Header */}
@@ -67,7 +78,7 @@ export default function RecentPlatformActivity() {
 
         {/* Activity List */}
         <div className="divide-y divide-[#1B2227]">
-          {activities.map((item) => (
+          {activities.map((item: ActivityItem) => (
             <div
               key={item.id}
               className="py-3.5 flex items-center justify-between gap-4 hover:bg-[#121719]/40 px-2 rounded-lg transition-colors cursor-pointer group"

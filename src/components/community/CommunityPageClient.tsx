@@ -4,10 +4,19 @@ import { useMemo, useRef, useState } from "react";
 import { ChevronDown, Filter, Heart, ImagePlus, MessageCircle, Send, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  useCommunityPosts,
+  useCommunityStatistics,
+  useAnnouncements,
+  useCreatePost,
+  useToggleLikePost,
+  useDeletePost,
+  useDeleteAnnouncement,
+} from "./hooks/useCommunity";
 
 type Topic = "All discussions" | "Signals" | "Education" | "Market discussion" | "Platform help";
 
-const announcements = [
+const defaultAnnouncements = [
   "Scanner update: two new exit conditions are live",
   "Community guidelines updated",
   "New feature launch: Dark mode",
@@ -25,43 +34,92 @@ const discussions = [
 ];
 
 const starterPosts = [
-  { id: 1, name: "Marcus D.", initial: "M", topic: "Signals", time: "2h ago", title: "How are people sizing the NVDA setup relative to their stop?", body: "The stop is 2% away which is tighter than most of the signals I’ve taken this quarter. Curious whether people size to a fixed dollar risk or a fixed position size. I’ve been doing fixed dollar risk for about six months and it has changed how the losing trades feel more than how the winners pay.", likes: 19, comments: 19, image: "/images/community/figma-01.png" },
-  { id: 2, name: "Samantha L.", initial: "S", topic: "Market Trends", time: "1h ago", title: "Has anyone noticed the recent volatility in tech stocks?", body: "It’s been quite a ride lately, with some stocks jumping while others are falling. I wonder if this is a temporary phase or a sign of a bigger market shift. Are traders adjusting their strategies in response to this?", likes: 15, comments: 15 },
-  { id: 3, name: "Alex T.", initial: "A", topic: "Options Strategies", time: "30m ago", title: "What are the best strategies for trading options in this market?", body: "Given the current market dynamics, I’m curious about strategies that have worked well for others. Should we focus on spreads or straddles? Any insights on risk management would also be appreciated!", likes: 22, comments: 22, image: "/images/community/figma-15.jpg" },
+  { id: "1", name: "Marcus D.", initial: "M", topic: "Signals", time: "2h ago", title: "How are people sizing the NVDA setup relative to their stop?", body: "The stop is 2% away which is tighter than most of the signals I’ve taken this quarter. Curious whether people size to a fixed dollar risk or a fixed position size. I’ve been doing fixed dollar risk for about six months and it has changed how the losing trades feel more than how the winners pay.", likes: 19, comments: 19, image: "/images/community/figma-01.png" },
+  { id: "2", name: "Samantha L.", initial: "S", topic: "Market Trends", time: "1h ago", title: "Has anyone noticed the recent volatility in tech stocks?", body: "It’s been quite a ride lately, with some stocks jumping while others are falling. I wonder if this is a temporary phase or a sign of a bigger market shift. Are traders adjusting their strategies in response to this?", likes: 15, comments: 15 },
+  { id: "3", name: "Alex T.", initial: "A", topic: "Options Strategies", time: "30m ago", title: "What are the best strategies for trading options in this market?", body: "Given the current market dynamics, I’m curious about strategies that have worked well for others. Should we focus on spreads or straddles? Any insights on risk management would also be appreciated!", likes: 22, comments: 22, image: "/images/community/figma-15.jpg" },
 ];
 
 export default function CommunityPageClient() {
   const [topic, setTopic] = useState<Topic>("All discussions");
   const [sort, setSort] = useState("Trending");
-  const [posts, setPosts] = useState(starterPosts);
   const [open, setOpen] = useState(false);
-  const visiblePosts = useMemo(() => topic === "All discussions" ? posts : posts.filter((post) => post.topic === topic), [posts, topic]);
+
+  const { data: stats } = useCommunityStatistics();
+  const { data: postsData, refetch: refetchPosts } = useCommunityPosts({
+    topic: topic === "All discussions" ? undefined : topic.toLowerCase(),
+  });
+  const { data: announcementsData } = useAnnouncements();
+  const createPostMutation = useCreatePost();
+  const likeMutation = useToggleLikePost();
+  const deleteMutation = useDeletePost();
+  const deleteAnnouncementMutation = useDeleteAnnouncement();
+
+  const posts = useMemo(() => {
+    if (postsData?.posts && postsData.posts.length > 0) {
+      return postsData.posts.map((p: any, idx: number) => ({
+        id: p._id || p.id || String(idx),
+        name: p.author?.name || "Community Member",
+        initial: (p.author?.name || "M").charAt(0).toUpperCase(),
+        topic: p.topic || "Signals",
+        time: p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "Recently",
+        title: p.title,
+        body: p.content,
+        likes: p.likesCount ?? 0,
+        comments: p.commentsCount ?? 0,
+        image: p.media?.[0] || undefined,
+      }));
+    }
+    return starterPosts;
+  }, [postsData]);
+
+  const visiblePosts = useMemo(
+    () => (topic === "All discussions" ? posts : posts.filter((post: any) => post.topic.toLowerCase() === topic.toLowerCase())),
+    [posts, topic]
+  );
+
+  const activeAnnouncements = useMemo(() => {
+    if (announcementsData && announcementsData.length > 0) {
+      return announcementsData.map((a) => ({
+        id: a._id || a.id || "",
+        title: a.title,
+      }));
+    }
+    return defaultAnnouncements.map((title, idx) => ({ id: String(idx), title }));
+  }, [announcementsData]);
 
   function addPost(post: { topic: string; title: string; body: string; image?: string }) {
-    setPosts((current) => [{ id: Date.now(), name: "Peter", initial: "P", topic: post.topic, time: "Just now", title: post.title, body: post.body, image: post.image, likes: 0, comments: 0 }, ...current]);
+    createPostMutation.mutate({
+      title: post.title,
+      content: post.body,
+      topic: post.topic.toLowerCase(),
+    });
     setOpen(false);
   }
+
+  const totalMembers = stats?.totalMembers ? stats.totalMembers.toLocaleString() : "1,240";
+  const userPosts = stats?.userTotalPosts !== undefined ? String(stats.userTotalPosts) : "47";
+  const totalLikes = stats?.totalLikes ? `${(stats.totalLikes / 1000).toFixed(1)}k` : "1.2k";
 
   return <div className="space-y-4 pb-8 font-raleway">
     <div><h2 className="text-base font-bold text-[#F1F4F3]">Community</h2><p className="mt-2 text-[10px] text-[#A2ABA8]">512 securities screened continuously — 502 S&amp;P 500 constituents and 10 liquid ETFs</p></div>
     <section className="grid gap-4 xl:grid-cols-[254px_minmax(0,1fr)_320px]">
       <aside className="space-y-4 xl:row-span-2">
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-1"><Metric title="Total Members" value="1,240" /><Metric title="Your total Post" value="47" /><Metric title="Total Likes" value="1.2k" extra="hidden xl:flex" /></div>
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-1"><Metric title="Total Members" value={totalMembers} /><Metric title="Your total Post" value={userPosts} /><Metric title="Total Likes" value={totalLikes} extra="hidden xl:flex" /></div>
         <div className="rounded-lg border border-[#293033] bg-[#0C0F10] p-3">
-          <div className="flex items-center justify-between border-b border-[#1B2227] pb-4"><span className="flex items-center gap-2 text-sm font-semibold"><Filter className="h-4 w-4" /> Filters</span><button className="text-[10px] text-[#718090]">Reset</button></div>
+          <div className="flex items-center justify-between border-b border-[#1B2227] pb-4"><span className="flex items-center gap-2 text-sm font-semibold"><Filter className="h-4 w-4" /> Filters</span><button onClick={() => { setTopic("All discussions"); setSort("Trending"); }} className="text-[10px] text-[#718090]">Reset</button></div>
           <FilterGroup label="TOPICS:" values={["All discussions", "Signals", "Education", "Market discussion", "Platform help"]} selected={topic} onClick={(item) => setTopic(item as Topic)} />
           <FilterGroup label="SORT:" values={["Trending", "Newest", "Most replies"]} selected={sort} onClick={setSort} />
-          <button className="gold-gradient-btn mt-5 w-full rounded-md py-2.5 text-xs">Apply filter</button>
+          <button onClick={() => refetchPosts()} className="gold-gradient-btn mt-5 w-full rounded-md py-2.5 text-xs">Apply filter</button>
         </div>
       </aside>
 
       <section className="rounded-lg border border-[#293033] bg-[#0C0F10] p-3 sm:p-4">
-        <div className="mb-5 flex items-center justify-between"><h3 className="text-xl font-semibold">Feed</h3><div className="text-right"><button onClick={() => setOpen(true)} className="gold-gradient-btn rounded-lg px-6 py-2.5 text-xs">Add New Post</button><button className="mt-2 block w-full text-right text-[11px] text-[#D7A43A]">Refresh</button></div></div>
-        <div className="space-y-3">{visiblePosts.length ? visiblePosts.map((post) => <Post key={post.id} post={post} />) : <div className="py-16 text-center text-sm text-[#718090]">No discussions in this topic yet.</div>}</div>
+        <div className="mb-5 flex items-center justify-between"><h3 className="text-xl font-semibold">Feed</h3><div className="text-right"><button onClick={() => setOpen(true)} className="gold-gradient-btn rounded-lg px-6 py-2.5 text-xs">Add New Post</button><button onClick={() => refetchPosts()} className="mt-2 block w-full text-right text-[11px] text-[#D7A43A]">Refresh</button></div></div>
+        <div className="space-y-3">{visiblePosts.length ? visiblePosts.map((post: any) => <Post key={post.id} post={post} onLike={() => likeMutation.mutate(String(post.id))} onDelete={() => deleteMutation.mutate(String(post.id))} />) : <div className="py-16 text-center text-sm text-[#718090]">No discussions in this topic yet.</div>}</div>
       </section>
 
       <aside className="space-y-3">
-        <Panel title="Announcements">{announcements.map((item) => <div key={item} className="rounded-md bg-[#121719] px-2 py-1.5"><div className="text-xs font-semibold text-[#F1F4F3]">{item}</div><div className="mt-1 flex items-center justify-between text-[9px] text-[#A2ABA8]"><span>5h ago</span><Trash2 className="h-3 w-3 text-[#EF4444]" /></div></div>)}</Panel>
+        <Panel title="Announcements">{activeAnnouncements.map((item) => <div key={item.id} className="rounded-md bg-[#121719] px-2 py-1.5"><div className="text-xs font-semibold text-[#F1F4F3]">{item.title}</div><div className="mt-1 flex items-center justify-between text-[9px] text-[#A2ABA8]"><span>5h ago</span><button onClick={() => deleteAnnouncementMutation.mutate(item.id)}><Trash2 className="h-3 w-3 text-[#EF4444]" /></button></div></div>)}</Panel>
         <Panel title="Trending discussions">{discussions.map(([name, category, count], index) => <div key={`${name}-${index}`} className="py-1.5"><div className="text-xs font-semibold text-[#F1F4F3]">{name}</div><div className="mt-1 flex gap-3 text-[9px] text-[#A2ABA8]"><span>{category}</span><span>·</span><span>{count}</span></div></div>)}</Panel>
       </aside>
     </section>
@@ -72,7 +130,7 @@ export default function CommunityPageClient() {
 function Metric({ title, value, extra = "" }: { title: string; value: string; extra?: string }) { return <article className={cn("rounded-lg border border-[#D7A43A]/70 bg-[radial-gradient(circle_at_15%_0%,rgba(175,104,32,.25),transparent_58%),#121719] p-3", extra)}><p className="text-[10px] font-medium text-[#F1F4F3]">{title}</p><strong className="mt-1 block text-base font-bold">{value}</strong></article>; }
 function FilterGroup({ label, values, selected, onClick }: { label: string; values: string[]; selected: string; onClick: (value: string) => void }) { return <div className="border-b border-[#1B2227] py-3"><p className="mb-2 text-[8px] text-[#718090]">{label}</p><div className="flex flex-wrap gap-1.5">{values.map((item) => <button key={item} onClick={() => onClick(item)} className={cn("rounded-md border px-2 py-1 text-[10px]", selected === item ? "border-[#D7A43A] bg-[#A48226]/20 text-[#E7C042]" : "border-[#293033] bg-[#171D1F] text-[#A2ABA8]")}>{item}</button>)}</div></div>; }
 function Panel({ title, children }: { title: string; children: React.ReactNode }) { return <section className="rounded-lg border border-[#293033] bg-[#0C0F10] p-3"><h3 className="mb-3 text-lg font-semibold">{title}</h3><div className="space-y-3">{children}</div></section>; }
-function Post({ post }: { post: typeof starterPosts[number] }) { return <article className="rounded-lg bg-[#121719] p-3"><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#D7A43A] to-[#574014] text-xs font-bold text-black">{post.initial}</div><div><div className="text-xs font-semibold">{post.name} <span className="ml-1 text-[9px] font-normal text-[#A2ABA8]">{post.topic}　·　{post.time}</span></div></div></div><button className="rounded-full bg-white p-1 text-[#EF4444]"><Trash2 className="h-3 w-3" /></button></div><div className={cn("mt-3", post.image && "grid gap-3 md:grid-cols-[1fr_135px]")}><div><h4 className="text-xs font-semibold text-[#F1F4F3]">{post.title}</h4><p className="mt-3 text-[10px] leading-[1.45] text-[#A2ABA8]">{post.body}</p></div>{post.image && <img src={post.image} alt="Post attachment" className="h-24 w-full rounded-md object-cover md:h-full" />}</div><div className="mt-3 flex gap-3 text-[9px] text-[#A2ABA8]"><span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> {post.comments}</span><span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {post.likes}</span><span className="flex items-center gap-1"><Send className="h-3 w-3" /> Report</span></div></article>; }
+function Post({ post, onLike, onDelete }: { post: typeof starterPosts[number]; onLike: () => void; onDelete: () => void }) { return <article className="rounded-lg bg-[#121719] p-3"><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#D7A43A] to-[#574014] text-xs font-bold text-black">{post.initial}</div><div><div className="text-xs font-semibold">{post.name} <span className="ml-1 text-[9px] font-normal text-[#A2ABA8]">{post.topic}　·　{post.time}</span></div></div></div><button onClick={onDelete} className="rounded-full bg-white p-1 text-[#EF4444]"><Trash2 className="h-3 w-3" /></button></div><div className={cn("mt-3", post.image && "grid gap-3 md:grid-cols-[1fr_135px]")}><div><h4 className="text-xs font-semibold text-[#F1F4F3]">{post.title}</h4><p className="mt-3 text-[10px] leading-[1.45] text-[#A2ABA8]">{post.body}</p></div>{post.image && <img src={post.image} alt="Post attachment" className="h-24 w-full rounded-md object-cover md:h-full" />}</div><div className="mt-3 flex gap-3 text-[9px] text-[#A2ABA8]"><span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> {post.comments}</span><button onClick={onLike} className="flex items-center gap-1 hover:text-[#E7C042]"><Heart className="h-3 w-3" /> {post.likes}</button><span className="flex items-center gap-1"><Send className="h-3 w-3" /> Report</span></div></article>; }
 
 function NewPostDialog({ open, onOpenChange, onPublish }: { open: boolean; onOpenChange: (value: boolean) => void; onPublish: (post: { topic: string; title: string; body: string; image?: string }) => void }) {
   const [topic, setTopic] = useState("Signals"); const [topicOpen, setTopicOpen] = useState(false); const [title, setTitle] = useState(""); const [body, setBody] = useState(""); const [image, setImage] = useState<string | null>(null); const [uploadError, setUploadError] = useState(""); const inputRef = useRef<HTMLInputElement>(null); const postTopics = ["Signals", "Market discussion", "Platform help", "Education", "Announcements"];

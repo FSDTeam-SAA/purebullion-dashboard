@@ -2,32 +2,32 @@
 
 import React, { useState } from "react";
 import { Lock, Download, Trash2, UserX } from "lucide-react";
+import {
+  useExportUserData,
+  useDeleteConversationHistory,
+  useCloseAccount,
+} from "./hooks/useAccount";
 
 export default function PrivacyDataCard() {
-  const [exported, setExported] = useState(false);
-  const [deletedHistory, setDeletedHistory] = useState(false);
+  const exportMutation = useExportUserData();
+  const deleteHistoryMutation = useDeleteConversationHistory();
+  const closeAccountMutation = useCloseAccount();
+
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   const handleExport = () => {
-    setExported(true);
-    // Simulate JSON file download
-    const dataStr =
-      "data:text/json;charset=utf-8," +
-      encodeURIComponent(
-        JSON.stringify({ user: "Rifat Datta Ovi", exportedAt: new Date() }, null, 2)
-      );
-    const downloadAnchor = document.createElement("a");
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "purebullion-user-data.json");
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    setTimeout(() => setExported(false), 2000);
+    exportMutation.mutate();
   };
 
   const handleDeleteHistory = () => {
-    setDeletedHistory(true);
-    setTimeout(() => setDeletedHistory(false), 2500);
+    deleteHistoryMutation.mutate();
+  };
+
+  const handleConfirmClose = () => {
+    closeAccountMutation.mutate({
+      reason: "User requested account closure from dashboard settings",
+    });
+    setShowCloseConfirm(false);
   };
 
   return (
@@ -77,7 +77,7 @@ export default function PrivacyDataCard() {
             onClick={handleExport}
             className="px-4 py-2 rounded-lg bg-[#182026] hover:bg-[#222C35] border border-[#2B353E] text-xs font-semibold text-white transition-all cursor-pointer self-start sm:self-auto shrink-0"
           >
-            {exported ? "Exported!" : "Export"}
+            {exportMutation.isPending ? "Exporting..." : "Export"}
           </button>
         </div>
 
@@ -102,7 +102,7 @@ export default function PrivacyDataCard() {
             onClick={handleDeleteHistory}
             className="px-4 py-2 rounded-lg bg-[#2E1417] hover:bg-[#3D1A1E] border border-[#EF4444]/30 text-xs font-semibold text-[#EF4444] transition-all cursor-pointer self-start sm:self-auto shrink-0"
           >
-            {deletedHistory ? "Deleted" : "Delete"}
+            {deleteHistoryMutation.isPending ? "Deleting..." : "Delete"}
           </button>
         </div>
 
@@ -150,7 +150,7 @@ export default function PrivacyDataCard() {
               </button>
               <button
                 type="button"
-                onClick={() => setShowCloseConfirm(false)}
+                onClick={handleConfirmClose}
                 className="px-4 py-2 rounded-lg bg-[#EF4444] text-white text-xs font-bold"
               >
                 Confirm Closure

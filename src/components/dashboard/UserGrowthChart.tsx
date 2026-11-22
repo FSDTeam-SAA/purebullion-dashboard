@@ -3,6 +3,7 @@
 import React from "react";
 import { BarChart3 } from "lucide-react";
 import { useIsClient } from "@/hooks/useIsClient";
+import { useUserGrowth } from "./hooks/useDashboard";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -13,7 +14,7 @@ import {
   Tooltip,
 } from "recharts";
 
-const data = [
+const fallbackData = [
   { date: "Feb 01", active: 520, newUsers: 710 },
   { date: "Feb 04", active: 580, newUsers: 720 },
   { date: "Feb 08", active: 690, newUsers: 700 },
@@ -27,6 +28,11 @@ const data = [
 
 export default function UserGrowthChart() {
   const isMounted = useIsClient();
+  const { data: growthResult } = useUserGrowth();
+  const growth = growthResult as any;
+
+  const chartData = growth?.chartData?.length ? growth.chartData : fallbackData;
+  const growthChange = growth?.change || growth?.comparison?.growthPercent || "+8.4%";
 
   return (
     <div className="p-5 sm:p-6 rounded-xl bg-[#0C0F10] border border-[#1B2227] flex flex-col justify-between font-raleway h-full shadow-xs">
@@ -62,7 +68,7 @@ export default function UserGrowthChart() {
             View Report →
           </button>
           <span className="px-2 py-0.5 rounded-md bg-[#0E2922] border border-[#10B981]/30 text-xs font-semibold text-[#10B981]">
-            +8.4%
+            {growthChange}
           </span>
         </div>
       </div>
@@ -72,7 +78,7 @@ export default function UserGrowthChart() {
         {isMounted ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <AreaChart
-              data={data}
+              data={chartData}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
             >
               <defs>

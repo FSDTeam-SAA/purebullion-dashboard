@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Server, AlertTriangle } from "lucide-react";
+import { useSystemStatus } from "./hooks/useDashboard";
 
 interface ServiceStatus {
   name: string;
@@ -9,7 +10,7 @@ interface ServiceStatus {
   latency: string;
 }
 
-const services: ServiceStatus[] = [
+const defaultServices: ServiceStatus[] = [
   { name: "Market data", status: "Connected", latency: "42 ms" },
   { name: "AI service", status: "Connected", latency: "61 ms" },
   { name: "News feed", status: "Degraded", latency: "184 ms" },
@@ -18,6 +19,17 @@ const services: ServiceStatus[] = [
 ];
 
 export default function SystemStatus() {
+  const { data: statusResult } = useSystemStatus();
+
+  const services: ServiceStatus[] = (statusResult as any)?.services?.length
+    ? (statusResult as any).services.map((s: any) => ({
+        name: s.name,
+        status: (s.status === "degraded" ? "Degraded" : s.status === "offline" ? "Offline" : "Connected") as ServiceStatus["status"],
+        latency: s.latency || "42 ms",
+      }))
+    : defaultServices;
+
+  const degradedCount = services.filter((s: ServiceStatus) => s.status === "Degraded" || s.status === "Offline").length;
   return (
     <div className="p-5 sm:p-6 rounded-xl bg-[#0C0F10] border border-[#1B2227] font-raleway h-full flex flex-col justify-between shadow-xs">
       {/* Header */}
@@ -30,15 +42,22 @@ export default function SystemStatus() {
             </h3>
           </div>
 
-          <span className="px-2.5 py-0.5 rounded-md bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-xs font-semibold text-[#F59E0B] flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
-            1 service degraded
-          </span>
+          {degradedCount > 0 ? (
+            <span className="px-2.5 py-0.5 rounded-md bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-xs font-semibold text-[#F59E0B] flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+              {degradedCount} service{degradedCount > 1 ? "s" : ""} degraded
+            </span>
+          ) : (
+            <span className="px-2.5 py-0.5 rounded-md bg-[#0E2922] border border-[#10B981]/30 text-xs font-semibold text-[#10B981] flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+              All systems normal
+            </span>
+          )}
         </div>
 
         {/* Services List */}
         <div className="divide-y divide-[#1B2227]">
-          {services.map((item) => (
+          {services.map((item: ServiceStatus) => (
             <div
               key={item.name}
               className="py-3 flex items-center justify-between gap-4 text-xs sm:text-sm"

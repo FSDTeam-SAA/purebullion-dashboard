@@ -1,40 +1,104 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Camera, ChevronDown } from "lucide-react";
+import {
+  useAccountProfile,
+  useUpdateAccountProfile,
+  useUploadAvatar,
+} from "./hooks/useAccount";
 
 export default function ProfileCard() {
+  const { data: profile } = useAccountProfile();
+  const updateProfileMutation = useUpdateAccountProfile();
+  const uploadAvatarMutation = useUploadAvatar();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [fullName, setFullName] = useState("Jordan Reyes");
   const [displayName, setDisplayName] = useState("Jordan R.");
   const [email, setEmail] = useState("jordan@email.com");
   const [timezone, setTimezone] = useState("Eastern Time (ET)");
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+    if (profile) {
+      if (profile.name) setFullName(profile.name);
+      if (profile.username) setDisplayName(profile.username);
+      if (profile.email) setEmail(profile.email);
+      if (profile.timezone) setTimezone(profile.timezone);
+    }
+  }, [profile]);
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    updateProfileMutation.mutate({
+      name: fullName,
+      username: displayName,
+      timezone,
+    });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };
 
   const handleDiscard = () => {
-    setFullName("Jordan Reyes");
-    setDisplayName("Jordan R.");
-    setEmail("jordan@email.com");
-    setTimezone("Eastern Time (ET)");
+    if (profile) {
+      setFullName(profile.name || "Jordan Reyes");
+      setDisplayName(profile.username || "Jordan R.");
+      setEmail(profile.email || "jordan@email.com");
+      setTimezone(profile.timezone || "Eastern Time (ET)");
+    } else {
+      setFullName("Jordan Reyes");
+      setDisplayName("Jordan R.");
+      setEmail("jordan@email.com");
+      setTimezone("Eastern Time (ET)");
+    }
   };
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadAvatarMutation.mutate(file);
+    }
+  };
+
+  const initials = fullName
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "RD";
 
   return (
     <div className="p-5 sm:p-6 lg:p-7 rounded-xl bg-[#0C0F10] border border-[#1B2227] font-raleway shadow-xs">
+      {/* Hidden Avatar File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAvatarSelect}
+      />
+
       {/* Top Profile Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#1B2227]">
         <div className="flex items-center gap-4 min-w-0">
           {/* Avatar with Change Photo Overlay */}
           <div className="relative group shrink-0">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-[#1B2227] to-[#2B353E] border-2 border-[#E7C042]/50 flex items-center justify-center text-white text-xl font-bold shadow-md">
-              RD
-            </div>
+            {profile?.profileImage ? (
+              <img
+                src={profile.profileImage}
+                alt={fullName}
+                className="w-16 h-16 rounded-full object-cover border-2 border-[#E7C042]/50 shadow-md"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-[#1B2227] to-[#2B353E] border-2 border-[#E7C042]/50 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                {initials}
+              </div>
+            )}
             <button
               type="button"
+              onClick={() => fileInputRef.current?.click()}
               className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
               title="Change photo"
             >
@@ -46,18 +110,18 @@ export default function ProfileCard() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight truncate">
-                Rifat Datta Ovi
+                {fullName}
               </h3>
             </div>
             <p className="text-xs text-[#8E9CA8] font-nunito truncate mt-0.5">
-              rifatdattaovi@email.com
+              {email}
             </p>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <span className="px-2.5 py-0.5 rounded-md bg-[#E7C042]/10 border border-[#E7C042]/30 text-xs font-bold text-[#E7C042]">
-                Super Admin
+                {profile?.role === "ADMIN" ? "Super Admin" : "Member"}
               </span>
               <span className="px-2.5 py-0.5 rounded-md bg-[#182026] border border-[#2B353E] text-xs font-medium text-[#8E9CA8]">
-                Founding member #388
+                {profile?.isFoundingMember ? "Founding member #388" : "Standard member"}
               </span>
             </div>
           </div>
@@ -67,6 +131,7 @@ export default function ProfileCard() {
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
+            onClick={() => fileInputRef.current?.click()}
             className="px-3 py-1.5 rounded-lg bg-[#182026] hover:bg-[#222C35] border border-[#2B353E] text-xs font-semibold text-white transition-colors cursor-pointer"
           >
             Change Photo
