@@ -11,7 +11,8 @@ export function useSupportMessages(params?: SupportQueryParams) {
     queryKey: ['support', 'messages', params],
     queryFn: () => supportApi.getAllMessages(params),
     select: (res: any) => ({
-      tickets: res.data || [],
+      tickets: res.data?.messages || [],
+      counts: res.data?.counts,
       meta: res.meta,
     }),
   });

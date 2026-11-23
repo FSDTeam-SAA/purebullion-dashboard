@@ -1,18 +1,18 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   Search,
-  UserPlus,
   Eye,
   Trash2,
   MoreHorizontal,
-  ChevronLeft,
-  ChevronRight,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUsers, useDeleteUser, useUpdateUser } from "./hooks/useUsers";
+import TablePagination from "@/components/shared/TablePagination";
+import { useDebouncedValue } from "@/components/shared/useDebouncedValue";
+import { usePage } from "@/components/shared/usePage";
+import { useUsers, useDeleteUser } from "./hooks/useUsers";
 
 export interface UserItem {
   id: string;
@@ -24,174 +24,44 @@ export interface UserItem {
   lastActive: string;
 }
 
-const initialUsers: UserItem[] = [
-  {
-    id: "usr-1",
-    name: "James Wilson",
-    email: "james.wilson@email.com",
-    subscription: "Essential",
-    status: "Active",
-    joined: "2024-01-15",
-    lastActive: "2 min ago",
-  },
-  {
-    id: "usr-2",
-    name: "Daniel Carter",
-    email: "daniel.carter@email.com",
-    subscription: "Essential",
-    status: "Active",
-    joined: "2024-03-22",
-    lastActive: "2 min ago",
-  },
-  {
-    id: "usr-3",
-    name: "Olivia Bennett",
-    email: "olivia.b@email.com",
-    subscription: "Essential",
-    status: "Suspended",
-    joined: "2024-03-22",
-    lastActive: "3 days ago",
-  },
-  {
-    id: "usr-4",
-    name: "Sarah Mitchell",
-    email: "s.mitchell@email.com",
-    subscription: "Professional",
-    status: "Active",
-    joined: "2024-02-03",
-    lastActive: "2 min ago",
-  },
-  {
-    id: "usr-5",
-    name: "Marcus Chen",
-    email: "priya.sharma@email.com",
-    subscription: "Elite",
-    status: "In Active",
-    joined: "2024-03-22",
-    lastActive: "2 weeks ago",
-  },
-  {
-    id: "usr-6",
-    name: "Daniel Carter",
-    email: "daniel.carter@email.com",
-    subscription: "Essential",
-    status: "Active",
-    joined: "2024-03-22",
-    lastActive: "2 min ago",
-  },
-  {
-    id: "usr-7",
-    name: "Sarah Mitchell",
-    email: "s.mitchell@email.com",
-    subscription: "Professional",
-    status: "Active",
-    joined: "2024-02-03",
-    lastActive: "2 min ago",
-  },
-  {
-    id: "usr-8",
-    name: "Marcus Chen",
-    email: "priya.sharma@email.com",
-    subscription: "Elite",
-    status: "In Active",
-    joined: "2024-03-22",
-    lastActive: "2 weeks ago",
-  },
-  {
-    id: "usr-9",
-    name: "Ethan Rodriguez",
-    email: "ava.thompson@email.com",
-    subscription: "Professional",
-    status: "Suspended",
-    joined: "2024-03-22",
-    lastActive: "2 weeks ago",
-  },
-];
-
 const tabs = ["All", "Active", "Suspended", "Inactive"] as const;
 type TabType = (typeof tabs)[number];
 
-export default function UserManagementTable() {
-  const { data: usersData } = useUsers();
-  const deleteMutation = useDeleteUser();
-  const updateMutation = useUpdateUser();
+const PAGE_SIZE = 10;
+const TAB_PARAM: Record<string, string> = { All: "all", Active: "active", Suspended: "suspended", Inactive: "inactive" };
 
-  const [users, setUsers] = useState<UserItem[]>(initialUsers);
+export default function UserManagementTable() {
+  const deleteMutation = useDeleteUser();
+
   const [activeTab, setActiveTab] = useState<TabType>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const search = useDebouncedValue(searchQuery.trim());
 
-  // New user form state
-  const [newUserName, setNewUserName] = useState("");
-  const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserSub, setNewUserSub] = useState<"Essential" | "Professional" | "Elite">("Essential");
-  const [newUserStatus, setNewUserStatus] = useState<"Active" | "Suspended" | "In Active">("Active");
+  const [page, setPage] = usePage(`${activeTab}|${search}`);
 
-  // Effective users list (API data if loaded, else state)
-  const currentUsers = useMemo(() => {
-    const rawUsers: any[] = (usersData as any)?.data?.users || (usersData as any)?.users;
-    if (rawUsers && rawUsers.length > 0) {
-      return rawUsers.map((u: any) => ({
-        id: u._id || u.id || "",
-        name: u.user?.name || u.name || u.email,
-        email: u.user?.email || u.email,
-        subscription: (u.subscriptions || (u as any).subscriptionPlan?.name || (u as any).currentPlan?.name || "Essential") as UserItem["subscription"],
-        status: (u.status === "Suspended" ? "Suspended" : u.status === "In Active" ? "In Active" : "Active") as UserItem["status"],
-        joined: u.joined || (u.createdAt ? new Date(u.createdAt).toISOString().split("T")[0] : "2024-01-15"),
-        lastActive: u.lastActive || "Recently",
-      }));
-    }
-    return users;
-  }, [usersData, users]);
+  const { data: usersData, isLoading, isError } = useUsers({
+    status: TAB_PARAM[activeTab],
+    search: search || undefined,
+    page,
+    limit: PAGE_SIZE,
+  });
 
-  // Filtering
-  const filteredUsers = useMemo(() => {
-    return currentUsers.filter((u: UserItem) => {
-      // Tab filter
-      if (activeTab === "Active" && u.status !== "Active") return false;
-      if (activeTab === "Suspended" && u.status !== "Suspended") return false;
-      if (activeTab === "Inactive" && u.status !== "In Active") return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filteredUsers: UserItem[] = ((usersData as any)?.data?.users ?? []).map((u: any) => ({
+    id: String(u._id),
+    name: u.user?.name || u.email,
+    email: u.user?.email || u.email,
+    subscription: u.subscriptions,
+    status: u.status,
+    joined: u.joined ?? "—",
+    lastActive: u.lastActive ?? "—",
+  }));
 
-      // Search query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = u.name.toLowerCase().includes(query);
-        const matchesEmail = u.email.toLowerCase().includes(query);
-        const matchesSub = u.subscription.toLowerCase().includes(query);
-        return matchesName || matchesEmail || matchesSub;
-      }
-      return true;
-    });
-  }, [currentUsers, activeTab, searchQuery]);
-
-  // Handle Add User
-  const handleAddUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUserName.trim() || !newUserEmail.trim()) return;
-
-    const newUser: UserItem = {
-      id: `usr-${Date.now()}`,
-      name: newUserName.trim(),
-      email: newUserEmail.trim(),
-      subscription: newUserSub,
-      status: newUserStatus,
-      joined: new Date().toISOString().split("T")[0],
-      lastActive: "Just now",
-    };
-
-    setUsers([newUser, ...users]);
-    setNewUserName("");
-    setNewUserEmail("");
-    setIsAddModalOpen(false);
-  };
-
-  // Handle Delete
   const confirmDelete = () => {
     if (!deleteUserId) return;
     deleteMutation.mutate(deleteUserId);
-    setUsers((prev) => prev.filter((u) => u.id !== deleteUserId));
     setDeleteUserId(null);
   };
 
@@ -231,23 +101,11 @@ export default function UserManagementTable() {
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#0C0F10] border border-[#1B2227] hover:border-[#2B353E] focus:border-[#E7C042]/70 focus:outline-none rounded-lg pl-9 pr-14 py-2 text-xs text-white placeholder-[#5B6675] transition-all"
+              className="w-full bg-[#0C0F10] border border-[#1B2227] hover:border-[#2B353E] focus:border-[#E7C042]/70 focus:outline-none rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-[#5B6675] transition-all"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-[#182026] border border-[#2B353E] text-[10px] font-mono text-[#8E9CA8] pointer-events-none">
-              ⌘K
-            </div>
           </div>
         </div>
 
-        {/* Right Side: Gold Add New User Button */}
-        <button
-          type="button"
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg gold-gradient-btn text-black text-xs font-bold shadow-md hover:brightness-105 active:scale-98 transition-all cursor-pointer shrink-0"
-        >
-          <UserPlus className="w-4 h-4 stroke-[2.5]" />
-          <span>Add New User</span>
-        </button>
       </div>
 
       {/* Main Table Container */}
@@ -272,7 +130,7 @@ export default function UserManagementTable() {
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-[#718090]">
-                    No users found matching your search.
+                    {isLoading ? "Loading users…" : isError ? "Could not load users." : "No users found."}
                   </td>
                 </tr>
               ) : (
@@ -383,177 +241,8 @@ export default function UserManagementTable() {
           </table>
         </div>
 
-        {/* Table Pagination Footer */}
-        <div className="p-4 sm:px-6 border-t border-[#1B2227] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <div className="text-[#8E9CA8]">
-            Showing <span className="font-semibold text-white">1</span> to{" "}
-            <span className="font-semibold text-white">
-              {Math.min(filteredUsers.length, 9)}
-            </span>{" "}
-            of <span className="font-semibold text-white">120</span> results
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {/* Prev button */}
-            <button
-              type="button"
-              className="p-1.5 rounded-md text-[#5B6675] hover:text-white hover:bg-[#182026] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              disabled
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            {/* Page 1 (Active) */}
-            <button
-              type="button"
-              className="w-7 h-7 rounded-md tab-gold-active text-white font-bold flex items-center justify-center shadow-xs cursor-pointer"
-            >
-              1
-            </button>
-
-            {/* Page 2 */}
-            <button
-              type="button"
-              className="w-7 h-7 rounded-md text-[#8E9CA8] hover:text-white hover:bg-[#182026] flex items-center justify-center cursor-pointer font-medium"
-            >
-              2
-            </button>
-
-            {/* Page 3 */}
-            <button
-              type="button"
-              className="w-7 h-7 rounded-md text-[#8E9CA8] hover:text-white hover:bg-[#182026] flex items-center justify-center cursor-pointer font-medium"
-            >
-              3
-            </button>
-
-            <span className="px-1 text-[#5B6675]">...</span>
-
-            {/* Page 17 */}
-            <button
-              type="button"
-              className="w-7 h-7 rounded-md text-[#8E9CA8] hover:text-white hover:bg-[#182026] flex items-center justify-center cursor-pointer font-medium"
-            >
-              17
-            </button>
-
-            {/* Next button */}
-            <button
-              type="button"
-              className="p-1.5 rounded-md text-[#8E9CA8] hover:text-white hover:bg-[#182026] cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        <TablePagination meta={(usersData as any)?.meta} onPageChange={setPage} />
       </div>
-
-      {/* Add New User Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-[#0C0F10] border border-[#1B2227] rounded-xl max-w-md w-full p-6 shadow-2xl relative">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-[#E7C042]" />
-                <h3 className="text-lg font-bold text-white">Add New User</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-[#8E9CA8] hover:text-white p-1 rounded-md"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddUser} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#8E9CA8] uppercase mb-1.5">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Alex Morgan"
-                  value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
-                  className="w-full bg-[#121719] border border-[#1B2227] rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-[#5B6675] focus:outline-none focus:border-[#E7C042]/70"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#8E9CA8] uppercase mb-1.5">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. alex@example.com"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                  className="w-full bg-[#121719] border border-[#1B2227] rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-[#5B6675] focus:outline-none focus:border-[#E7C042]/70"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#8E9CA8] uppercase mb-1.5">
-                    Plan
-                  </label>
-                  <select
-                    value={newUserSub}
-                    onChange={(e) =>
-                      setNewUserSub(
-                        e.target.value as "Essential" | "Professional" | "Elite"
-                      )
-                    }
-                    className="w-full bg-[#121719] border border-[#1B2227] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#E7C042]/70"
-                  >
-                    <option value="Essential">Essential</option>
-                    <option value="Professional">Professional</option>
-                    <option value="Elite">Elite</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#8E9CA8] uppercase mb-1.5">
-                    Status
-                  </label>
-                  <select
-                    value={newUserStatus}
-                    onChange={(e) =>
-                      setNewUserStatus(
-                        e.target.value as "Active" | "Suspended" | "In Active"
-                      )
-                    }
-                    className="w-full bg-[#121719] border border-[#1B2227] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#E7C042]/70"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Suspended">Suspended</option>
-                    <option value="In Active">In Active</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-[#8E9CA8] hover:text-white hover:bg-white/5 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-lg gold-gradient-btn text-black text-xs font-bold shadow-md hover:brightness-105"
-                >
-                  Create User
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* User Details Modal */}
       {selectedUser && (

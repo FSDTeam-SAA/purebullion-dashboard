@@ -49,7 +49,7 @@ export const authOptions: NextAuthOptions = {
               user?.name ||
               credentials.email.split("@")[0];
 
-            const role = (user?.role || "admin").trim().toLowerCase();
+            const role = String(user?.role ?? "").trim().toLowerCase();
             const isAuthorized =
               role === "admin" ||
               role === "superadmin" ||
@@ -85,12 +85,16 @@ export const authOptions: NextAuthOptions = {
               permissions = ['ALL'];
             }
 
+            if (!accessToken || typeof accessToken !== "string") {
+              throw new Error("Login failed: the server did not return an access token.");
+            }
+
             return {
-              id: user?._id || user?.id || "1",
+              id: user?._id || user?.id,
               name,
               email: user?.email || credentials.email,
               phoneNumber: user?.phoneNumber || null,
-              role: user?.role || "admin",
+              role: user.role,
               profileImage: user?.photo || user?.profileImage || null,
               accessToken,
               permissions,
@@ -104,24 +108,8 @@ export const authOptions: NextAuthOptions = {
           if (error instanceof Error && error.message && error.message !== "fetch failed") {
             throw error;
           }
-          // Backend offline or unreachable fallback
+          throw new Error("Cannot connect to the server. Please try again later.");
         }
-
-        // Demo fallback: Allows testing dashboard immediately even without backend running
-        if (credentials.email && credentials.password) {
-          return {
-            id: "jsb-user-1",
-            name: credentials.email.split("@")[0],
-            email: credentials.email,
-            phoneNumber: "+1234567890",
-            role: "superadmin",
-            profileImage: null,
-            accessToken: "mock-jwt-token",
-            permissions: ['ALL'],
-          };
-        }
-
-        throw new Error("Invalid credentials");
       },
     }),
   ],

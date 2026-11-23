@@ -1,80 +1,24 @@
 import { apiClient } from "@/services/apiClient";
-import {
-  DashboardOverviewResponse,
-  DashboardKPIs,
-  MarketConditionsData,
-  UserGrowthData,
-  RevenueOverviewData,
-} from "../types/dashboard.types";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+async function get<T = any>(path: string, params?: Record<string, unknown>): Promise<T> {
+  const res = await apiClient.get(path, { params });
+  return res.data.data as T;
+}
 
 export const dashboardApi = {
-  getOverview: async (timeframe?: string) => {
-    const res = await apiClient.get<{ success: boolean; data: DashboardOverviewResponse }>(
-      "/admin/dashboard/overview",
-      { params: { timeframe } }
-    );
-    return res.data.data;
-  },
+  getKpis: (timeframe?: string) => get("/admin/dashboard/kpis", { timeframe }),
+  getMarketConditions: () => get("/admin/dashboard/market-conditions"),
+  getUserGrowth: (timeframe?: string) => get("/admin/dashboard/user-growth", { timeframe }),
+  getRevenueOverview: (timeframe?: string) => get("/admin/dashboard/revenue-overview", { timeframe }),
+  getPlanPerformance: () => get("/admin/dashboard/plan-performance"),
+  getRecentActivity: (params?: Record<string, unknown>) => get("/admin/dashboard/recent-activity", params),
+  getSystemStatus: () => get("/admin/dashboard/system-status"),
 
-  getKpis: async (timeframe?: string) => {
-    const res = await apiClient.get<{ success: boolean; data: DashboardKPIs }>(
-      "/admin/dashboard/kpis",
-      { params: { timeframe } }
-    );
-    return res.data.data;
-  },
-
-  getMarketConditions: async () => {
-    const res = await apiClient.get<{ success: boolean; data: MarketConditionsData }>(
-      "/admin/dashboard/market-conditions"
-    );
-    return res.data.data;
-  },
-
-  getUserGrowth: async (timeframe?: string) => {
-    const res = await apiClient.get<{ success: boolean; data: UserGrowthData }>(
-      "/admin/dashboard/user-growth",
-      { params: { timeframe } }
-    );
-    return res.data.data;
-  },
-
-  getRevenueOverview: async (timeframe?: string) => {
-    const res = await apiClient.get<{ success: boolean; data: RevenueOverviewData }>(
-      "/admin/dashboard/revenue-overview",
-      { params: { timeframe } }
-    );
-    return res.data.data;
-  },
-
-  getPlanPerformance: async () => {
-    const res = await apiClient.get<{ success: boolean; data: any }>(
-      "/admin/dashboard/plan-performance"
-    );
-    return res.data.data;
-  },
-
-  getRecentActivity: async (params?: any) => {
-    const res = await apiClient.get<{ success: boolean; data: any }>(
-      "/admin/dashboard/recent-activity",
-      { params }
-    );
-    return res.data.data;
-  },
-
-  getSystemStatus: async () => {
-    const res = await apiClient.get<{ success: boolean; data: any }>(
-      "/admin/dashboard/system-status"
-    );
-    return res.data.data;
-  },
-
-  exportDashboard: async (timeframe?: string) => {
-    const res = await apiClient.get("/admin/dashboard/export", {
-      params: { timeframe },
-      responseType: "blob",
-    });
-    return res.data;
+  exportCsv: async (timeframe?: string): Promise<{ filename: string; content: string }> => {
+    const res = await apiClient.get("/admin/dashboard/export", { params: { timeframe, format: "csv" } });
+    const payload = res.data?.data ?? res.data;
+    if (!payload?.content) throw new Error("The server returned an empty export.");
+    return { filename: payload.filename || "dashboard-export.csv", content: payload.content };
   },
 };
-

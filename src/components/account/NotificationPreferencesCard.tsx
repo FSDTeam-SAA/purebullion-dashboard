@@ -16,13 +16,13 @@ interface ToggleItem {
 }
 
 const initialToggles: ToggleItem[] = [
-  { id: "new-signals", key: "newSignals", label: "New signals", enabled: true },
-  { id: "signal-closed-1", key: "signalProximity", label: "Signal proximity", enabled: true },
-  { id: "signal-closed-2", key: "signalClosed", label: "Signal closed", enabled: true },
-  { id: "market-condition", key: "marketConditionChange", label: "Market condition change", enabled: true },
+  { id: "new-signals", key: "newSignals", label: "New signals", enabled: false },
+  { id: "signal-closed-1", key: "signalProximity", label: "Signal proximity", enabled: false },
+  { id: "signal-closed-2", key: "signalClosed", label: "Signal closed", enabled: false },
+  { id: "market-condition", key: "marketConditionChange", label: "Market condition change", enabled: false },
   { id: "watchlist-movers", key: "watchlistMovers", label: "Watchlist movers", enabled: false },
-  { id: "community-replies", key: "communityReplies", label: "Community replies", enabled: true },
-  { id: "daily-briefing", key: "dailyBriefingEmail", label: "Daily briefing email", enabled: true },
+  { id: "community-replies", key: "communityReplies", label: "Community replies", enabled: false },
+  { id: "daily-briefing", key: "dailyBriefingEmail", label: "Daily briefing email", enabled: false },
   { id: "weekly-wrap", key: "weeklyWrapEmail", label: "Weekly wrap email", enabled: false },
 ];
 
@@ -44,6 +44,7 @@ export default function NotificationPreferencesCard() {
   }, [prefData]);
 
   const handleToggle = (id: string) => {
+    if (!prefData) return;
     const next = toggles.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t));
     setToggles(next);
 

@@ -58,7 +58,7 @@ export default function LoginPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sessionUser = session?.user as any;
         const token = sessionUser?.accessToken;
-        if (token && token !== 'mock-jwt-token') {
+        if (token) {
           localStorage.setItem('accessToken', token);
         }
         if (Array.isArray(sessionUser?.permissions) && sessionUser.permissions.length > 0) {
@@ -94,7 +94,8 @@ export default function LoginPage() {
       }
 
       toast.success('Login successful! Redirecting...');
-      router.push('/dashboard');
+      const cb = searchParams.get('callbackUrl');
+      router.push(cb && cb.startsWith('/') && !cb.startsWith('//') ? cb : '/dashboard');
       router.refresh();
     } catch (error) {
       console.error('Login error:', error);

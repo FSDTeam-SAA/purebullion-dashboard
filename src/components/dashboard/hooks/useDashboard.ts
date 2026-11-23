@@ -1,17 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
+import { useUIStore } from "@/store/ui.store";
 import { dashboardApi } from "../api/dashboard.api";
 
 export const DASHBOARD_QUERY_KEY = ["admin-dashboard"] as const;
 
-export function useDashboardOverview(timeframe?: string) {
-  return useQuery({
-    queryKey: [...DASHBOARD_QUERY_KEY, "overview", timeframe],
-    queryFn: () => dashboardApi.getOverview(timeframe),
-    staleTime: 60 * 1000,
-  });
+function useTimeframe() {
+  return useUIStore((s) => s.dashboardTimeframe);
 }
 
-export function useDashboardKpis(timeframe?: string) {
+export function useDashboardKpis() {
+  const timeframe = useTimeframe();
   return useQuery({
     queryKey: [...DASHBOARD_QUERY_KEY, "kpis", timeframe],
     queryFn: () => dashboardApi.getKpis(timeframe),
@@ -27,7 +25,8 @@ export function useMarketConditions() {
   });
 }
 
-export function useUserGrowth(timeframe?: string) {
+export function useUserGrowth() {
+  const timeframe = useTimeframe();
   return useQuery({
     queryKey: [...DASHBOARD_QUERY_KEY, "user-growth", timeframe],
     queryFn: () => dashboardApi.getUserGrowth(timeframe),
@@ -35,7 +34,8 @@ export function useUserGrowth(timeframe?: string) {
   });
 }
 
-export function useRevenueOverview(timeframe?: string) {
+export function useRevenueOverview() {
+  const timeframe = useTimeframe();
   return useQuery({
     queryKey: [...DASHBOARD_QUERY_KEY, "revenue-overview", timeframe],
     queryFn: () => dashboardApi.getRevenueOverview(timeframe),
@@ -51,7 +51,7 @@ export function usePaidPlanPerformance() {
   });
 }
 
-export function useRecentPlatformActivity(params?: any) {
+export function useRecentPlatformActivity(params?: Record<string, unknown>) {
   return useQuery({
     queryKey: [...DASHBOARD_QUERY_KEY, "recent-activity", params],
     queryFn: () => dashboardApi.getRecentActivity(params),
@@ -66,4 +66,3 @@ export function useSystemStatus() {
     staleTime: 30 * 1000,
   });
 }
-

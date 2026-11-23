@@ -2,7 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Menu, Bell, Search, ChevronDown } from "lucide-react";
+import { Menu, Bell, ChevronDown } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/services/apiClient";
 import { useUIStore } from "@/store/ui.store";
 import { useSession } from "next-auth/react";
 
@@ -15,11 +17,25 @@ export default function DashboardHeader() {
   } = useUIStore();
   const { data: session } = useSession();
 
+  // Real market state from the backend; the pill is hidden if it cannot be loaded.
+  const { data: marketState } = useQuery({
+    queryKey: ["header-market-state"],
+    queryFn: async () => {
+      const res = await apiClient.get("/market-data/market-state");
+      const payload = res.data?.data;
+      const entry = Array.isArray(payload) ? payload[0] : payload?.market_state?.[0] ?? payload;
+      return entry as { is_market_open?: boolean; name?: string } | undefined;
+    },
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
+    retry: false,
+  });
+
   const getPageInfo = () => {
     if (pathname === "/dashboard" || pathname === "/") {
       return {
         title: "Dashboard",
-        subtitle: "Monitor the entire Pure Bullion platform · Demo data",
+        subtitle: "Monitor the entire Pure Bullion platform",
         isBreadcrumb: false,
       };
     }
@@ -56,7 +72,7 @@ export default function DashboardHeader() {
   const pageInfo = getPageInfo();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = session?.user as any;
-  const userName = user?.name || "Ari Wohl";
+  const userName = user?.name || user?.email || "Admin";
   const userRole = user?.role || "Admin";
   const userProfileImage = user?.profileImage || null;
   const userInitials = userName
@@ -101,31 +117,19 @@ export default function DashboardHeader() {
 
       {/* Right: Search, Market status, Notifications, User profile */}
       <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-        {/* Search Bar */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0C0F10] border border-[#222C35] text-xs text-[#8E9CA8] w-[210px] focus-within:border-[#A48226] focus-within:text-white transition-all">
-          <Search className="w-4 h-4 text-[#5B6675]" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="bg-transparent text-white placeholder:text-[#5B6675] outline-none text-xs w-full"
-          />
-          <kbd className="px-1.5 py-0.5 rounded bg-[#182026] border border-[#2E3A45] text-[10px] text-[#718090] font-mono select-none">
-            ⌘K
-          </kbd>
-        </div>
-
         {/* Market Status Pill */}
-        <div className="hidden xl:flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-[#0E2922] border border-[#10B981]/30">
-          <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-          <div className="flex flex-col text-left leading-tight">
-            <span className="text-xs font-semibold text-[#10B981]">
-              Market open
-            </span>
-            <span className="text-[10px] text-[#10B981]/70">
-              Sep 19 · 16:00 ET
+        {typeof marketState?.is_market_open === "boolean" && (
+          <div
+            className={`hidden xl:flex items-center gap-2.5 px-3 py-1.5 rounded-lg border ${
+              marketState.is_market_open ? "bg-[#0E2922] border-[#10B981]/30" : "bg-[#2E1417] border-[#EF4444]/30"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${marketState.is_market_open ? "bg-[#10B981] animate-pulse" : "bg-[#EF4444]"}`} />
+            <span className={`text-xs font-semibold ${marketState.is_market_open ? "text-[#10B981]" : "text-[#EF4444]"}`}>
+              {marketState.is_market_open ? "Market open" : "Market closed"}
             </span>
           </div>
-        </div>
+        )}
 
         {/* Notification Bell with Badge */}
         <button
@@ -136,9 +140,9 @@ export default function DashboardHeader() {
           aria-label="Toggle notifications drawer"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#CC2B2B] text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-[#080B0C]">
-            {unreadNotificationsCount || 3}
-          </span>
+          {unreadNotificationsCount > 0 && (<span className="absolute -top-1 -right-1 w-4 h-4 bg-[#CC2B2B] text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-[#080B0C]">
+            {unreadNotificationsCount}
+          </span>)}
         </button>
 
         {/* User Profile Pill */}

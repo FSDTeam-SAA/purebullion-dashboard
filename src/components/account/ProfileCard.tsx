@@ -14,9 +14,9 @@ export default function ProfileCard() {
   const uploadAvatarMutation = useUploadAvatar();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [fullName, setFullName] = useState("Jordan Reyes");
-  const [displayName, setDisplayName] = useState("Jordan R.");
-  const [email, setEmail] = useState("jordan@email.com");
+  const [fullName, setFullName] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [timezone, setTimezone] = useState("Eastern Time (ET)");
   const [isSaved, setIsSaved] = useState(false);
 
@@ -42,15 +42,10 @@ export default function ProfileCard() {
 
   const handleDiscard = () => {
     if (profile) {
-      setFullName(profile.name || "Jordan Reyes");
-      setDisplayName(profile.username || "Jordan R.");
-      setEmail(profile.email || "jordan@email.com");
-      setTimezone(profile.timezone || "Eastern Time (ET)");
-    } else {
-      setFullName("Jordan Reyes");
-      setDisplayName("Jordan R.");
-      setEmail("jordan@email.com");
-      setTimezone("Eastern Time (ET)");
+      setFullName(profile.name || "");
+      setDisplayName(profile.username || "");
+      setEmail(profile.email || "");
+      setTimezone(profile.timezone || "");
     }
   };
 
@@ -67,7 +62,7 @@ export default function ProfileCard() {
     .filter(Boolean)
     .slice(0, 2)
     .join("")
-    .toUpperCase() || "RD";
+    .toUpperCase() || "A";
 
   return (
     <div className="p-5 sm:p-6 lg:p-7 rounded-xl bg-[#0C0F10] border border-[#1B2227] font-raleway shadow-xs">

@@ -5,6 +5,8 @@ import { getSession, signOut } from 'next-auth/react';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api/v1';
 
+const AUTH_PAGES = /^\/(login|forgot-password|reset-password|verify-otp|verify-email)/;
+
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -19,7 +21,6 @@ export const apiClient: AxiosInstance = axios.create({
  */
 function isValidJwt(token: string | null | undefined): boolean {
   if (!token || typeof token !== 'string') return false;
-  if (token === 'mock-jwt-token') return false;
 
   const parts = token.split('.');
   if (parts.length !== 3) return false;
@@ -39,6 +40,31 @@ function isValidJwt(token: string | null | undefined): boolean {
     return false;
   }
 }
+
+/** Resolves a valid access token (localStorage first, then the NextAuth session). */
+export async function getAccessToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  let token = localStorage.getItem('accessToken');
+  if (!isValidJwt(token)) {
+    try {
+      const session = await getSession();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sessionToken = (session?.user as any)?.accessToken;
+      if (isValidJwt(sessionToken)) {
+        token = sessionToken;
+        localStorage.setItem('accessToken', sessionToken);
+      } else {
+        localStorage.removeItem('accessToken');
+        token = null;
+      }
+    } catch {
+      token = null;
+    }
+  }
+  return token;
+}
+
+export const API_BASE = API_BASE_URL;
 
 // Request interceptor: attach valid auth token from localStorage or NextAuth session
 apiClient.interceptors.request.use(
@@ -161,11 +187,7 @@ apiClient.interceptors.response.use(
           localStorage.removeItem('adminPermissions');
           localStorage.removeItem('adminRole');
           // If in dashboard, sign out and redirect to login
-          if (
-            window.location.pathname.startsWith('/dashboard') ||
-            window.location.pathname.startsWith('/settings') ||
-            window.location.pathname.startsWith('/account')
-          ) {
+          if (!AUTH_PAGES.test(window.location.pathname)) {
             signOut({ callbackUrl: '/login?error=SessionExpired' });
           }
         }

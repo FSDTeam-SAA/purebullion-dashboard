@@ -1,20 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import { Shield, KeyRound, Smartphone } from "lucide-react";
+import React from "react";
+import { Shield, KeyRound } from "lucide-react";
 
 interface SecurityCardProps {
   onOpenChangePassword: () => void;
 }
 
 export default function SecurityCard({ onOpenChangePassword }: SecurityCardProps) {
-  const [signedOut, setSignedOut] = useState(false);
-
-  const handleSignOutOthers = () => {
-    setSignedOut(true);
-    setTimeout(() => setSignedOut(false), 2500);
-  };
-
   return (
     <div className="p-5 sm:p-6 lg:p-7 rounded-xl bg-[#0C0F10] border border-[#1B2227] font-raleway shadow-xs">
       {/* Header */}
@@ -51,9 +44,6 @@ export default function SecurityCard({ onOpenChangePassword }: SecurityCardProps
               <h4 className="text-sm font-bold text-white tracking-tight">
                 Password
               </h4>
-              <p className="text-xs text-[#8E9CA8] font-nunito mt-0.5">
-                Last changed 4 months ago
-              </p>
             </div>
           </div>
 
@@ -66,30 +56,6 @@ export default function SecurityCard({ onOpenChangePassword }: SecurityCardProps
           </button>
         </div>
 
-        {/* Active Sessions Row */}
-        <div className="py-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-[#182026] border border-[#2B353E] text-[#8E9CA8] shrink-0 mt-0.5">
-              <Smartphone className="w-4 h-4" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white tracking-tight">
-                Active sessions
-              </h4>
-              <p className="text-xs text-[#8E9CA8] font-nunito mt-0.5">
-                3 devices · Chrome on macOS, Safari on iPhone, Chrome on Windows
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSignOutOthers}
-            className="px-4 py-2 rounded-lg bg-[#182026] hover:bg-[#222C35] border border-[#2B353E] text-xs font-semibold text-[#8E9CA8] hover:text-white transition-all cursor-pointer self-start sm:self-auto shrink-0"
-          >
-            {signedOut ? "Signed out others" : "Sign out others"}
-          </button>
-        </div>
       </div>
     </div>
   );

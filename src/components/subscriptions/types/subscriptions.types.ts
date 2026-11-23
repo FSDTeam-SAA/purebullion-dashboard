@@ -24,12 +24,11 @@ export interface SubscriptionStats {
 export interface PlanItem {
   id: string;
   name: string;
-  tier: "Essential" | "Professional" | "Elite";
-  priceMonthly: number;
-  priceYearly: number;
+  monthlyPrice: number;
+  yearlyPrice: number;
   description?: string;
-  features: string[];
-  isActive: boolean;
+  benefits?: string[];
+  isActive?: boolean;
 }
 
 export interface GetSubscribersParams {

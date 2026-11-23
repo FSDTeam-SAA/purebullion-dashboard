@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
+export type DashboardTimeframe = "today" | "7d" | "30d" | "90d";
+
 export interface UIState {
+  dashboardTimeframe: DashboardTimeframe;
+  setDashboardTimeframe: (t: DashboardTimeframe) => void;
+
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -22,6 +27,9 @@ export interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
+  dashboardTimeframe: "30d",
+  setDashboardTimeframe: (t) => set({ dashboardTimeframe: t }),
+
   sidebarCollapsed: false,
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),

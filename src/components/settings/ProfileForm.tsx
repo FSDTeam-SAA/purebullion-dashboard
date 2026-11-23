@@ -40,7 +40,7 @@ export default function ProfileForm() {
           setExistingPhotoUrl(profile.photo || profile.profileImage || null);
         }
       } catch {
-        // Fallback to session data if backend profile is unreachable or demo session
+        // Fall back to the signed-in session data if the profile request fails
         if (isMounted) {
           if (session?.user) {
             const fullName = session.user.name || '';
@@ -50,10 +50,6 @@ export default function ProfileForm() {
             setEmail(session.user.email || '');
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setExistingPhotoUrl((session.user as any).profileImage || null);
-          } else {
-            setFirstName('John');
-            setLastName('Bhawal');
-            setEmail('you@gmail.com');
           }
         }
       } finally {

@@ -1,62 +1,43 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, Search, X } from "lucide-react";
+import { useState } from "react";
+import { Eye, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TablePagination from "@/components/shared/TablePagination";
+import { useDebouncedValue } from "@/components/shared/useDebouncedValue";
+import { usePage } from "@/components/shared/usePage";
 import {
   useSupportMessages,
   useResolveTicket,
-  useDeleteTicket,
 } from "./hooks/useSupport";
 
 const filters = ["All", "Pending", "Resolved"] as const;
 type Filter = (typeof filters)[number];
 type Ticket = { id: string | number; date: string; name: string; email: string; message?: string; status: "Pending" | "Resolved" };
-const defaultTickets: Ticket[] = [
-  { id: 1, date: "2024-01-15", name: "Ralph Edwards", email: "ralphedwards@gmail.com", status: "Resolved" },
-  { id: 2, date: "2024-01-16", name: "Apple Inc.", email: "ralphedwards@gmail.com", status: "Pending" },
-  { id: 3, date: "2024-01-17", name: "James Wilson", email: "james.wilson@gmail.com", status: "Resolved" },
-  { id: 4, date: "2024-01-18", name: "Sarah Mitchell", email: "sarah.mitchell@gmail.com", status: "Resolved" },
-  { id: 5, date: "2024-01-19", name: "Daniel Carter", email: "daniel.carter@gmail.com", status: "Pending" },
-  { id: 6, date: "2024-01-20", name: "Marcus Chen", email: "marcus.chen@gmail.com", status: "Resolved" },
-  { id: 7, date: "2024-01-21", name: "Olivia Bennett", email: "olivia.bennett@gmail.com", status: "Resolved" },
-  { id: 8, date: "2024-01-22", name: "Ethan Rodriguez", email: "ethan.rodriguez@gmail.com", status: "Pending" },
-  { id: 9, date: "2024-01-23", name: "Ava Thompson", email: "ava.thompson@gmail.com", status: "Resolved" },
-];
-
 export default function SupportPageClient() {
   const [filter, setFilter] = useState<Filter>("All");
   const [query, setQuery] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
-  const { data: supportData } = useSupportMessages({
+  const search = useDebouncedValue(query.trim());
+  const [page, setPage] = usePage(`${filter}|${search}`);
+
+  const { data: supportData, isLoading, isError } = useSupportMessages({
     status: filter === "All" ? undefined : filter.toLowerCase(),
+    search: search || undefined,
+    page,
+    limit: 10,
   });
   const resolveMutation = useResolveTicket();
 
-  const ticketList: Ticket[] = useMemo(() => {
-    if (supportData?.tickets && supportData.tickets.length > 0) {
-      return supportData.tickets.map((t: any, idx: number) => ({
-        id: t._id || t.id || idx + 1,
-        date: t.createdAt ? new Date(t.createdAt).toISOString().split("T")[0] : "2024-01-15",
-        name: t.name,
-        email: t.email,
-        message: t.message,
-        status: (t.status === "resolved" ? "Resolved" : "Pending") as Ticket["status"],
-      }));
-    }
-    return defaultTickets;
-  }, [supportData]);
-
-  const visible = useMemo(
-    () =>
-      ticketList.filter(
-        (ticket: Ticket) =>
-          (filter === "All" || ticket.status === filter) &&
-          `${ticket.name} ${ticket.email}`.toLowerCase().includes(query.toLowerCase())
-      ),
-    [ticketList, filter, query]
-  );
+  const visible: Ticket[] = (supportData?.tickets ?? []).map((t: any) => ({
+    id: t._id,
+    date: t.date ?? (t.createdAt ? new Date(t.createdAt).toISOString().split("T")[0] : "—"),
+    name: t.name,
+    email: t.email,
+    message: t.message,
+    status: (t.status === "Resolved" || t.status === "resolved" ? "Resolved" : "Pending") as Ticket["status"],
+  }));
 
   return (
     <div className="pb-8 font-raleway">
@@ -84,7 +65,6 @@ export default function SupportPageClient() {
               placeholder="Search..."
               className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[#5B6675]"
             />
-            <kbd className="rounded border border-[#2B353E] bg-[#182026] px-1.5 py-0.5 text-[10px] text-[#8E9CA8]">⌘K</kbd>
           </label>
         </div>
         <div className="overflow-x-auto">
@@ -122,40 +102,14 @@ export default function SupportPageClient() {
               ) : (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-sm text-[#718090]">
-                    No support requests found matching your search.
+                    {isLoading ? "Loading support requests…" : isError ? "Could not load support requests." : "No support requests found."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <footer className="flex flex-col items-center justify-between gap-4 border-t border-[#1B2227] p-4 text-xs sm:flex-row sm:px-6">
-          <span className="text-[#8E9CA8]">
-            Showing <b className="text-white">1</b> to <b className="text-white">{visible.length}</b> of{" "}
-            <b className="text-white">120</b> results
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button className="rounded-md p-1.5 text-[#5B6675]">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button className="tab-gold-active flex h-7 w-7 items-center justify-center rounded-md font-bold text-white">1</button>
-            {[2, 3].map((page) => (
-              <button
-                key={page}
-                className="flex h-7 w-7 items-center justify-center rounded-md font-medium text-[#8E9CA8] hover:bg-[#182026] hover:text-white"
-              >
-                {page}
-              </button>
-            ))}
-            <span className="px-1 text-[#5B6675]">…</span>
-            <button className="flex h-7 w-7 items-center justify-center rounded-md font-medium text-[#8E9CA8] hover:bg-[#182026] hover:text-white">
-              17
-            </button>
-            <button className="rounded-md p-1.5 text-[#8E9CA8] hover:bg-[#182026] hover:text-white">
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </footer>
+        <TablePagination meta={supportData?.meta} onPageChange={setPage} />
       </section>
       {selectedTicket && (
         <SupportModal
@@ -203,7 +157,7 @@ function SupportModal({ ticket, close, onResolve }: { ticket: Ticket; close: () 
             Message
             <textarea
               readOnly
-              value={ticket.message || `Hello, I need support with my account. This request was submitted by ${ticket.name} on ${ticket.date}. Please review the details and contact me at ${ticket.email}.`}
+              value={ticket.message ?? ""}
               className="mt-1.5 h-24 w-full resize-none rounded-lg border border-transparent bg-[#596165] p-3 text-xs text-white outline-none"
             />
           </label>
